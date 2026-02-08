@@ -1,0 +1,54 @@
+Frontend:
+  impl: ReadWriteTrace
+  clock_ratio: 8
+  #num_expected_insts: 500000
+  path: /home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/dpc2.trace #(subject to change once driven by automation.py)
+    
+  Translation:
+    impl: NoTranslation
+    max_addr: 2147483648 #not useful actually lol
+
+MemorySystem:
+  impl: GenericDRAM
+  clock_ratio: 3
+
+  DRAM:
+    impl: DDR5
+
+    org:
+      preset: DDR5_16Gb_x8
+      channel: 1
+      rank: 2
+
+    timing:
+      preset: DDR5_3200AN
+      tREFI: 3900   # ns  (this targets ~64 ms effective window) #(subject to change once driven by automation.py)
+
+    voltage:
+      preset: Default
+
+    current:
+      preset: Default
+
+    RFM:
+      preset: Default
+
+  Controller:
+    impl: Generic
+    Scheduler:
+      impl: FRFCFS
+    RefreshManager:
+      impl: AllBank
+    RowPolicy:
+      impl: ClosedRowPolicy
+      cap: 4
+
+    plugins:
+      - ControllerPlugin:
+          impl: TraceRecorder
+          path: /home/eevee/Documents/team_teh_tarik/ramulator2/deepsjeng_ramulator_trac_64ms.txt #(subject to change once driven by automation.py)
+          record_cycle: true
+          record_addr: true
+
+  AddrMapper:
+    impl: RoBaRaCoCh
