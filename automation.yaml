@@ -1,8 +1,8 @@
 Frontend:
-  impl: ReadWriteTrace
+  impl: SimpleO3
   clock_ratio: 8
-  #num_expected_insts: 500000
-  path: /home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/dpc2.trace #(subject to change once driven by automation.py)
+  num_expected_insts: 200000
+  traces: /home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/mcf_s-484B.trace
     
   Translation:
     impl: NoTranslation
@@ -40,8 +40,8 @@ MemorySystem:
     RefreshManager:
       impl: AllBank
     RowPolicy:
-      impl: ClosedRowPolicy
-      cap: 4
+      impl: OpenRowPolicy
+      cap: 32
 
     plugins:
       - ControllerPlugin:
@@ -52,3 +52,5 @@ MemorySystem:
 
   AddrMapper:
     impl: RoBaRaCoCh
+  #  impl: ChRaBaRoCo
+  
