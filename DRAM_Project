@@ -4,12 +4,22 @@ BASE_PATH = os.path.expanduser('~/Downloads/DramProject')
 FREQ_MHZ = 1600
 SIZE_GB = 16
 CONFIGS = ['64ms', '128ms', '192ms']
+BASE_LAMBDA_FIT = 100
 LAMBDA_MULTIPLIERS = {
     '64ms':  1.0,
-    '128ms': 1.0 + math.log(2),
+    '128ms': 1.2,
     '192ms': 1.0 + math.log(3)
 }
-BASE_LAMBDA_FIT = 100
+
+TRACE_DISPLAY_MAP = {
+    'deepsjeng': 'Trace B (deepsjeng)',
+    'mcf':       'Trace D (mcf)',
+    'bwaves':    'Trace A (bwaves)',
+    'x264':      'Trace F (x264)', 
+    'xz':        'Trace G (xz)' ,
+    'gcc':       'Trace C (gcc)' ,
+    'perlbench': 'Trace E (perlbench)'     
+}
 print(f" Scanning: {BASE_PATH}")
 
 trace_roots = []
@@ -17,69 +27,98 @@ for root, dirs, files in os.walk(BASE_PATH):
     if any('64ms' in d for d in dirs):
         trace_roots.append(root)
 trace_roots.sort()
-
-print(f" Found {len(trace_roots)} Traces\n")
+print(f" Found {len(trace_roots)} Chunks/Divisions\n")
+aggregated_results = {}
 
 for i, trace_path in enumerate(trace_roots):
     real_name = os.path.basename(trace_path)
-    trace_label = f"Trace {chr(65 + i)}"
-    temp_results = {}
+    trace_key = "Unknown"
+    if 'deepsjeng' in real_name:       trace_key = 'deepsjeng'
+    elif 'mcf' in real_name:           trace_key = 'mcf'
+    elif 'bwaves' in real_name:        trace_key = 'bwaves'
+    elif 'x264' in real_name:          trace_key = 'x264'  
+    elif 'xz' in real_name:            trace_key = 'xz' 
+    elif 'gcc' in real_name:           trace_key = 'gcc' 
+    elif 'perlbench' in real_name:     trace_key = 'perlbench'  
+    else: 
+        trace_key = real_name.split('_')[0]
+    if trace_key not in aggregated_results:
+        aggregated_results[trace_key] = {}
+        for cfg in CONFIGS:
+            aggregated_results[trace_key][cfg] = {
+                'M': [], 
+                'BC_SER': [], 
+                'Ratio': [], 
+                'Score': []
+            }
 
+    temp_results = {}
     for cfg in CONFIGS:
         folder = next((d for d in os.listdir(trace_path) if cfg in d), None)
+        if not folder: continue
         full_path = os.path.join(trace_path, folder)        
-        
         try:
             dp_file = next((f for f in os.listdir(full_path) if 'drampower_report' in f), None)
-            ram_file = next((f for f in os.listdir(full_path) if 'ramulator2_report' in f), None)
-
+            ram_file = next((f for f in os.listdir(full_path) if 'ramulator2_report' in f), None) 
+            if not dp_file or not ram_file: continue
             with open(os.path.join(full_path, dp_file), 'r') as f:
-                E = float(re.search(r"Total Energy ->\s*([\d\.eE\-\+]+)", f.read()).group(1))
-            
+                E = float(re.search(r"Total Energy ->\s*([\d\.eE\-\+]+)", f.read()).group(1))       
             with open(os.path.join(full_path, ram_file), 'r') as f:
                 content = f.read()
                 lat_cyc = float(re.search(r"avg_read_latency_0:\s*([\d\.]+)", content).group(1))
                 tot_cyc = float(re.search(r"memory_system_cycles:\s*([\d\.]+)", content).group(1))
-
             lat_sec = lat_cyc / (FREQ_MHZ * 1e6)
             duration_hours = (tot_cyc / (FREQ_MHZ * 1e6)) / 3600.0
-
             M = E * (lat_sec ** 2)
             current_lambda = BASE_LAMBDA_FIT * LAMBDA_MULTIPLIERS.get(cfg, 1.0)
             mu = (current_lambda / 1e9) * SIZE_GB * duration_hours
             bc_ser = 1 - math.exp(-mu)
-
             temp_results[cfg] = {
                 'M': M,
-                'BC_SER': bc_ser,
-                'Config': cfg
+                'BC_SER': bc_ser
             }
         except: continue
 
-    if temp_results:
-        baseline_bc_ser = temp_results.get('64ms', list(temp_results.values())[0])['BC_SER']
-        
+    if temp_results and '64ms' in temp_results:
+        baseline_bc_ser = temp_results['64ms']['BC_SER']
         if baseline_bc_ser == 0: baseline_bc_ser = 1e-20 
-        
-        final_data = []
         for cfg, res in temp_results.items():
             risk_ratio = res['BC_SER'] / baseline_bc_ser
             score = res['M'] * risk_ratio         
-            res['Risk_Ratio'] = risk_ratio
-            res['Score'] = score
-            final_data.append(res)
+            aggregated_results[trace_key][cfg]['M'].append(res['M'])
+            aggregated_results[trace_key][cfg]['BC_SER'].append(res['BC_SER'])
+            aggregated_results[trace_key][cfg]['Ratio'].append(risk_ratio)
+            aggregated_results[trace_key][cfg]['Score'].append(score)
 
-        print("="*80)
-        print(f" {trace_label} (Folder: {real_name})")
-        print("="*80)
-        print(f"{'Config':<8} | {'M (Cost)':<10} | {'BC_SER':<10} | {'Risk Ratio':<10} | {'SCORE':<10}")
-        print("-" * 80)
-        
-        for row in final_data:
-            print(f"{row['Config']:<8} | {row['M']:<10.4e} | {row['BC_SER']:<10.2e} | {row['Risk_Ratio']:<10.2f} | {row['Score']:<10.4e}")
+sorted_traces = sorted(aggregated_results.keys())
+for trace in sorted_traces:
+    display_name = TRACE_DISPLAY_MAP.get(trace, trace)
+    print("=" * 80)
+    print(f" REPORT: {display_name}")
+    print("=" * 80)
+    print(f"{'Config':<8} | {'Avg M (Cost)':<14} | {'Avg BC_SER':<12} | {'Avg Ratio':<10} | {'Avg SCORE':<12}")
+    print("-" * 80)
+    averages_for_winner = {}
+    for cfg in CONFIGS:
+        data_lists = aggregated_results[trace][cfg]
+        count = len(data_lists['Score'])
+        if count > 0:
+            avg_m = sum(data_lists['M']) / count
+            avg_bc = sum(data_lists['BC_SER']) / count
+            avg_ratio = sum(data_lists['Ratio']) / count
+            avg_score = sum(data_lists['Score']) / count        
+            averages_for_winner[cfg] = avg_score
+            print(f"{cfg:<8} | {avg_m:<14.4e} | {avg_bc:<12.2e} | {avg_ratio:<10.2f} | {avg_score:<12.4e}")
+        else:
+            print(f"{cfg:<8} | {'NO DATA':<14} | {'-':<12} | {'-':<10} | {'-':<12}")
+            averages_for_winner[cfg] = float('inf')
+    print("-" * 80)
 
-        winner = min(final_data, key=lambda x: x['Score'])
-        print("-" * 80)
-        print(f" Most suitable t_refi: {winner['Config']}")
-        print(f"   (Reason: Lowest Risk-Adjusted Score)")
-        print("\n")
+    valid_avgs = {k: v for k, v in averages_for_winner.items() if v != float('inf')}
+    if valid_avgs:
+        winner = min(valid_avgs, key=valid_avgs.get)
+        print(f" Most suitable t_refi: {winner}")
+        print(f"    (Reason: Lowest Average Risk-Adjusted Score)")
+    else:
+        print(" No valid data found for this trace.")    
+    print("\n\n")
