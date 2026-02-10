@@ -1,0 +1,85 @@
+import os, re, math
+
+BASE_PATH = os.path.expanduser('~/Downloads/DramProject')
+FREQ_MHZ = 1600
+SIZE_GB = 16
+CONFIGS = ['64ms', '128ms', '192ms']
+LAMBDA_MULTIPLIERS = {
+    '64ms':  1.0,
+    '128ms': 1.0 + math.log(2),
+    '192ms': 1.0 + math.log(3)
+}
+BASE_LAMBDA_FIT = 100
+print(f" Scanning: {BASE_PATH}")
+
+trace_roots = []
+for root, dirs, files in os.walk(BASE_PATH):
+    if any('64ms' in d for d in dirs):
+        trace_roots.append(root)
+trace_roots.sort()
+
+print(f" Found {len(trace_roots)} Traces\n")
+
+for i, trace_path in enumerate(trace_roots):
+    real_name = os.path.basename(trace_path)
+    trace_label = f"Trace {chr(65 + i)}"
+    temp_results = {}
+
+    for cfg in CONFIGS:
+        folder = next((d for d in os.listdir(trace_path) if cfg in d), None)
+        full_path = os.path.join(trace_path, folder)        
+        
+        try:
+            dp_file = next((f for f in os.listdir(full_path) if 'drampower_report' in f), None)
+            ram_file = next((f for f in os.listdir(full_path) if 'ramulator2_report' in f), None)
+
+            with open(os.path.join(full_path, dp_file), 'r') as f:
+                E = float(re.search(r"Total Energy ->\s*([\d\.eE\-\+]+)", f.read()).group(1))
+            
+            with open(os.path.join(full_path, ram_file), 'r') as f:
+                content = f.read()
+                lat_cyc = float(re.search(r"avg_read_latency_0:\s*([\d\.]+)", content).group(1))
+                tot_cyc = float(re.search(r"memory_system_cycles:\s*([\d\.]+)", content).group(1))
+
+            lat_sec = lat_cyc / (FREQ_MHZ * 1e6)
+            duration_hours = (tot_cyc / (FREQ_MHZ * 1e6)) / 3600.0
+
+            M = E * (lat_sec ** 2)
+            current_lambda = BASE_LAMBDA_FIT * LAMBDA_MULTIPLIERS.get(cfg, 1.0)
+            mu = (current_lambda / 1e9) * SIZE_GB * duration_hours
+            bc_ser = 1 - math.exp(-mu)
+
+            temp_results[cfg] = {
+                'M': M,
+                'BC_SER': bc_ser,
+                'Config': cfg
+            }
+        except: continue
+
+    if temp_results:
+        baseline_bc_ser = temp_results.get('64ms', list(temp_results.values())[0])['BC_SER']
+        
+        if baseline_bc_ser == 0: baseline_bc_ser = 1e-20 
+        
+        final_data = []
+        for cfg, res in temp_results.items():
+            risk_ratio = res['BC_SER'] / baseline_bc_ser
+            score = res['M'] * risk_ratio         
+            res['Risk_Ratio'] = risk_ratio
+            res['Score'] = score
+            final_data.append(res)
+
+        print("="*80)
+        print(f" {trace_label} (Folder: {real_name})")
+        print("="*80)
+        print(f"{'Config':<8} | {'M (Cost)':<10} | {'BC_SER':<10} | {'Risk Ratio':<10} | {'SCORE':<10}")
+        print("-" * 80)
+        
+        for row in final_data:
+            print(f"{row['Config']:<8} | {row['M']:<10.4e} | {row['BC_SER']:<10.2e} | {row['Risk_Ratio']:<10.2f} | {row['Score']:<10.4e}")
+
+        winner = min(final_data, key=lambda x: x['Score'])
+        print("-" * 80)
+        print(f" Most suitable t_refi: {winner['Config']}")
+        print(f"   (Reason: Lowest Risk-Adjusted Score)")
+        print("\n")
