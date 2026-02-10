@@ -6,7 +6,7 @@ Frontend:
     
   Translation:
     impl: NoTranslation
-    max_addr: 2147483648 #not useful actually lol
+    max_addr: 17179869184 
 
 MemorySystem:
   impl: GenericDRAM

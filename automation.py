@@ -10,10 +10,10 @@ DO_DRAMPOWER_CLI = True
 
 # Paths
 baseline_config_file = "automation.yaml"
-#dpc_file_name = "605.mcf_s-484B.champsimtrace.xz"
+dpc_file_name = "605.mcf_s-484B.champsimtrace.xz"
 #dpc_file_name = "625.x264_s-12B.champsimtrace.xz"
 #dpc_file_name = "603.bwaves_s-891B.champsimtrace.xz"
-dpc_file_name = "657.xz_s-56B.champsimtrace.xz"
+#dpc_file_name = "657.xz_s-56B.champsimtrace.xz"
 parts = dpc_file_name.split('.')
 trace_name = parts[1]  
 
@@ -61,7 +61,7 @@ with open(baseline_config_file, 'r') as f:
 for tREFI, interval in zip(tREFI_list, interval_list):
     base_config["MemorySystem"]["DRAM"]["timing"]["tREFI"] = tREFI
     
-    output_base = f"/home/eevee/Documents/team_teh_tarik/result/{trace_name}_{interval}ms"
+    output_base = f"/home/eevee/Documents/team_teh_tarik/result/{trace_name}/{trace_name}_{interval}ms"
     if not os.path.exists(output_base):
         os.makedirs(output_base)
     ramulator_trace_output = output_base + f"/{trace_name}_{interval}ms_ramulator2_output.txt"
@@ -69,11 +69,7 @@ for tREFI, interval in zip(tREFI_list, interval_list):
     drampower_report_output = output_base + f"/{trace_name}_{interval}ms_drampower_report.txt"
 
     # Update Path in Plugins
-    """
-    for plugin in base_config["MemorySystem"]["Controller"]["plugins"]:
-        if plugin.get("impl") == "TraceRecorder":
-            plugin["path"] = ramulator_trace_output
-    """        
+
     for plugin in base_config["MemorySystem"]["Controller"]["plugins"]:
         if "ControllerPlugin" in plugin:
             plugin["ControllerPlugin"]["path"] = ramulator_trace_output
@@ -86,7 +82,7 @@ for tREFI, interval in zip(tREFI_list, interval_list):
 
     # --- Step 2: Running Simulation ---
     if DO_RAMU2_SIM:
-        print(f"--- Step 2: Running Simulation ({interval}ms) ---")
+        print(f"\n--- Step 2: Running Simulation ({interval}ms) ---")
         print(f"Fetching trace file: {ramulator_trace_input}")
         try:
             with open(output_base + f"/{trace_name}_{interval}ms_ramulator2_report.txt", "w") as output_file:
@@ -97,7 +93,8 @@ for tREFI, interval in zip(tREFI_list, interval_list):
 
     # --- Step 3: Convert to DRAMPower ---
     if DO_DRAMPOWER_CONV:
-        print(f"--- Step 3: Converting to DRAMPower format ---")
+        print(f"\n--- Step 3: Converting to DRAMPower format ---")
+        print(f"Converting trace file: {ramulator_trace_output}.ch0")
         try:
             if os.path.exists(ramulator_trace_output + ".ch0"):
                 env = os.environ.copy()
@@ -115,7 +112,7 @@ for tREFI, interval in zip(tREFI_list, interval_list):
 
     # --- Step 4: Run DRAMPower CLI ---
     if DO_DRAMPOWER_CLI:
-        print(f"--- Step 4: Calculating Energy with DRAMPower ---")
+        print(f"\n--- Step 4: Calculating Energy with DRAMPower ---")
         try:
             result = subprocess.run([
                 drampower_bin, "-m", dram_spec_json, "-t", drampower_trace_input, "-c", cli_config_json
