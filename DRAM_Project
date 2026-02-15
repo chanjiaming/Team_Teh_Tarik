@@ -1,124 +1,253 @@
 import os, re, math
+import pandas as pd
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from collections import Counter
 
-BASE_PATH = os.path.expanduser('~/Downloads/DramProject')
+BASE_PROJECT_PATH = os.path.expanduser('~/Downloads/DramProject')
+AI_TRAINING_PATH = os.path.join(BASE_PROJECT_PATH, 'AI_Training')
+NEW_TRACE_PATH = os.path.join(BASE_PROJECT_PATH, 'New_Trace')
+for path in [AI_TRAINING_PATH, NEW_TRACE_PATH]:
+    if not os.path.exists(path): os.makedirs(path)
 FREQ_MHZ = 1600
 SIZE_GB = 16
 CONFIGS = ['64ms', '128ms', '192ms']
 BASE_LAMBDA_FIT = 100
-LAMBDA_MULTIPLIERS = {
-    '64ms':  1.0,
-    '128ms': 1.2,
-    '192ms': 1.0 + math.log(3)
-}
-
+LAMBDA_MULTIPLIERS = { '64ms': 1.0, '128ms': 1.25, '192ms': 1.5 }
 TRACE_DISPLAY_MAP = {
-    'deepsjeng': 'Trace B (deepsjeng)',
-    'mcf':       'Trace D (mcf)',
-    'bwaves':    'Trace A (bwaves)',
-    'x264':      'Trace F (x264)', 
-    'xz':        'Trace G (xz)' ,
-    'gcc':       'Trace C (gcc)' ,
-    'perlbench': 'Trace E (perlbench)'     
+    'deepsjeng': 'Trace_B_deepsjeng', 'mcf': 'Trace_D_mcf',
+    'bwaves': 'Trace_A_bwaves', 'x264': 'Trace_F_x264', 
+    'xz': 'Trace_G_xz', 'gcc': 'Trace_C_gcc', 'perlbench': 'Trace_E_perlbench'     
 }
-print(f" Scanning: {BASE_PATH}")
+print(f" Project Base: {BASE_PROJECT_PATH}")
+print(f" AI Training Data: {AI_TRAINING_PATH}")
+print(f" New Traces to Test: {NEW_TRACE_PATH}\n")
 
-trace_roots = []
-for root, dirs, files in os.walk(BASE_PATH):
-    if any('64ms' in d for d in dirs):
-        trace_roots.append(root)
-trace_roots.sort()
-print(f" Found {len(trace_roots)} Chunks/Divisions\n")
-aggregated_results = {}
+def get_val(content, keys):
+    for key in keys:
+        match = re.search(rf"{key}\s*[:=]\s*([\d\.]+)", content)
+        if match: return float(match.group(1))
+    return 0.0
 
-for i, trace_path in enumerate(trace_roots):
-    real_name = os.path.basename(trace_path)
-    trace_key = "Unknown"
-    if 'deepsjeng' in real_name:       trace_key = 'deepsjeng'
-    elif 'mcf' in real_name:           trace_key = 'mcf'
-    elif 'bwaves' in real_name:        trace_key = 'bwaves'
-    elif 'x264' in real_name:          trace_key = 'x264'  
-    elif 'xz' in real_name:            trace_key = 'xz' 
-    elif 'gcc' in real_name:           trace_key = 'gcc' 
-    elif 'perlbench' in real_name:     trace_key = 'perlbench'  
-    else: 
-        trace_key = real_name.split('_')[0]
-    if trace_key not in aggregated_results:
-        aggregated_results[trace_key] = {}
-        for cfg in CONFIGS:
-            aggregated_results[trace_key][cfg] = {
-                'M': [], 
-                'BC_SER': [], 
-                'Ratio': [], 
-                'Score': []
-            }
-
-    temp_results = {}
+def process_trace_folder(trace_path):
+    data = {}
     for cfg in CONFIGS:
         folder = next((d for d in os.listdir(trace_path) if cfg in d), None)
         if not folder: continue
-        full_path = os.path.join(trace_path, folder)        
+        full_path = os.path.join(trace_path, folder)
         try:
             dp_file = next((f for f in os.listdir(full_path) if 'drampower_report' in f), None)
-            ram_file = next((f for f in os.listdir(full_path) if 'ramulator2_report' in f), None) 
+            ram_file = next((f for f in os.listdir(full_path) if 'ramulator2_report' in f), None)
             if not dp_file or not ram_file: continue
             with open(os.path.join(full_path, dp_file), 'r') as f:
-                E = float(re.search(r"Total Energy ->\s*([\d\.eE\-\+]+)", f.read()).group(1))       
+                dp_content = f.read()
+                match_E = re.search(r"Total Energy ->\s*([\d\.eE\-\+]+)", dp_content)
+                if not match_E: continue
+                E = float(match_E.group(1))         
             with open(os.path.join(full_path, ram_file), 'r') as f:
-                content = f.read()
-                lat_cyc = float(re.search(r"avg_read_latency_0:\s*([\d\.]+)", content).group(1))
-                tot_cyc = float(re.search(r"memory_system_cycles:\s*([\d\.]+)", content).group(1))
+                ram_content = f.read()
+                lat_cyc = get_val(ram_content, ['avg_read_latency_0', 'read_latency_avg'])
+                tot_cyc = get_val(ram_content, ['memory_system_cycles', 'cycles'])
+                n_read  = get_val(ram_content, ['num_read_reqs_0',  'number_of_read_requests'])
+                n_write = get_val(ram_content, ['num_write_reqs_0', 'number_of_write_requests'])
+                row_hits  = get_val(ram_content, ['row_hits_0',      'row_hits'])
+                row_miss  = get_val(ram_content, ['row_misses_0',    'row_misses'])
+                row_conf  = get_val(ram_content, ['row_conflicts_0', 'row_conflicts'])
+                llc_miss = get_val(ram_content, ['llc_read_misses', 'cache_read_misses'])
+                llc_acc  = get_val(ram_content, ['llc_read_access', 'cache_read_access'])
             lat_sec = lat_cyc / (FREQ_MHZ * 1e6)
             duration_hours = (tot_cyc / (FREQ_MHZ * 1e6)) / 3600.0
             M = E * (lat_sec ** 2)
             current_lambda = BASE_LAMBDA_FIT * LAMBDA_MULTIPLIERS.get(cfg, 1.0)
             mu = (current_lambda / 1e9) * SIZE_GB * duration_hours
             bc_ser = 1 - math.exp(-mu)
-            temp_results[cfg] = {
-                'M': M,
-                'BC_SER': bc_ser
-            }
+            
+            if cfg not in data: data[cfg] = []
+            data[cfg].append({
+                'Chunk_ID': folder, 'M': M, 'BC_SER': bc_ser,
+                'n_read': n_read, 'n_write': n_write, 'tot_cyc': tot_cyc,
+                'row_hits': row_hits, 'row_miss': row_miss, 'row_conf': row_conf,
+                'llc_miss': llc_miss, 'llc_acc': llc_acc
+            })
         except: continue
+    return data
 
-    if temp_results and '64ms' in temp_results:
-        baseline_bc_ser = temp_results['64ms']['BC_SER']
-        if baseline_bc_ser == 0: baseline_bc_ser = 1e-20 
-        for cfg, res in temp_results.items():
-            risk_ratio = res['BC_SER'] / baseline_bc_ser
-            score = res['M'] * risk_ratio         
-            aggregated_results[trace_key][cfg]['M'].append(res['M'])
-            aggregated_results[trace_key][cfg]['BC_SER'].append(res['BC_SER'])
-            aggregated_results[trace_key][cfg]['Ratio'].append(risk_ratio)
-            aggregated_results[trace_key][cfg]['Score'].append(score)
+trace_roots = []
+for root, dirs, files in os.walk(BASE_PROJECT_PATH):
+    if 'AI_Training' in root or 'New_Trace' in root: continue
+    if any('64ms' in d for d in dirs):
+        trace_roots.append(root)
+trace_roots.sort()
+print(f" Found {len(trace_roots)} Training Traces. Processing...\n")
+aggregated_results = {}
+for trace_path in trace_roots:
+    real_name = os.path.basename(trace_path)
+    trace_key = next((k for k in TRACE_DISPLAY_MAP if k in real_name), real_name.split('_')[0])
+    trace_data = process_trace_folder(trace_path)
+    if trace_key not in aggregated_results: aggregated_results[trace_key] = {}
+    for cfg, chunks in trace_data.items():
+        if cfg not in aggregated_results[trace_key]: aggregated_results[trace_key][cfg] = []
+        aggregated_results[trace_key][cfg].extend(chunks)
 
-sorted_traces = sorted(aggregated_results.keys())
-for trace in sorted_traces:
-    display_name = TRACE_DISPLAY_MAP.get(trace, trace)
-    print("=" * 80)
-    print(f" REPORT: {display_name}")
-    print("=" * 80)
+print(" Generating Tables & Excel Datasets for Training...\n")
+for trace in sorted(aggregated_results.keys()):
+    display_name = TRACE_DISPLAY_MAP.get(trace, f"trace_{trace}")
+    averages = {}
+    avg_base_risk = 1e-20
+    if aggregated_results[trace].get('64ms'):
+         avg_base_risk = sum(c['BC_SER'] for c in aggregated_results[trace]['64ms']) / len(aggregated_results[trace]['64ms'])
+    print("=" * 85)
+    print(f" REPORT: {display_name} (Training Trace)")
+    print("=" * 85)
     print(f"{'Config':<8} | {'Avg M (Cost)':<14} | {'Avg BC_SER':<12} | {'Avg Ratio':<10} | {'Avg SCORE':<12}")
-    print("-" * 80)
-    averages_for_winner = {}
-    for cfg in CONFIGS:
-        data_lists = aggregated_results[trace][cfg]
-        count = len(data_lists['Score'])
-        if count > 0:
-            avg_m = sum(data_lists['M']) / count
-            avg_bc = sum(data_lists['BC_SER']) / count
-            avg_ratio = sum(data_lists['Ratio']) / count
-            avg_score = sum(data_lists['Score']) / count        
-            averages_for_winner[cfg] = avg_score
-            print(f"{cfg:<8} | {avg_m:<14.4e} | {avg_bc:<12.2e} | {avg_ratio:<10.2f} | {avg_score:<12.4e}")
-        else:
-            print(f"{cfg:<8} | {'NO DATA':<14} | {'-':<12} | {'-':<10} | {'-':<12}")
-            averages_for_winner[cfg] = float('inf')
-    print("-" * 80)
+    print("-" * 85)
 
-    valid_avgs = {k: v for k, v in averages_for_winner.items() if v != float('inf')}
-    if valid_avgs:
-        winner = min(valid_avgs, key=valid_avgs.get)
-        print(f" Most suitable t_refi: {winner}")
-        print(f"    (Reason: Lowest Average Risk-Adjusted Score)")
+    for cfg in CONFIGS:
+        chunks = aggregated_results[trace].get(cfg, [])
+        if not chunks: 
+            averages[cfg] = float('inf')
+            print(f"{cfg:<8} | {'NO DATA':<14} | {'-':<12} | {'-':<10} | {'-':<12}")
+            continue
+        
+        avg_m = sum(c['M'] for c in chunks) / len(chunks)
+        avg_bc = sum(c['BC_SER'] for c in chunks) / len(chunks)
+        total_score = 0
+        total_ratio = 0
+        
+        for c in chunks:
+            risk_ratio = c['BC_SER'] / avg_base_risk if avg_base_risk > 0 else 1.0
+            score = c['M'] * risk_ratio
+            total_score += score
+            total_ratio += risk_ratio         
+        avg_score = total_score / len(chunks)
+        avg_ratio = total_ratio / len(chunks)
+        averages[cfg] = avg_score        
+        print(f"{cfg:<8} | {avg_m:<14.4e} | {avg_bc:<12.2e} | {avg_ratio:<10.2f} | {avg_score:<12.4e}")
+    print("-" * 85)
+    valid_avgs = {k: v for k, v in averages.items() if v != float('inf')}
+    if not valid_avgs: continue
+    winner_cfg = min(valid_avgs, key=valid_avgs.get)
+    print(f" Selected Trefi: {winner_cfg}\n")
+    scenario_folder = f"Scenario_{CONFIGS.index(winner_cfg) + 1}"
+    save_path = os.path.join(AI_TRAINING_PATH, scenario_folder)
+    if not os.path.exists(save_path): os.makedirs(save_path)
+    winning_chunks = aggregated_results[trace][winner_cfg]
+    export_data = []
+    
+    for c in winning_chunks:
+        req_per_cyc = (c['n_read'] + c['n_write']) / c['tot_cyc'] if c['tot_cyc'] > 0 else 0
+        total_reqs = c['n_read'] + c['n_write']
+        read_intensity = c['n_read'] / total_reqs if total_reqs > 0 else 0
+        denom_rb = c['row_hits'] + c['row_miss'] + c['row_conf']
+        rb_locality = c['row_hits'] / denom_rb if denom_rb > 0 else 0
+        llc_rate = c['llc_miss'] / c['llc_acc'] if c['llc_acc'] > 0 else 0
+        risk_ratio = c['BC_SER'] / avg_base_risk if avg_base_risk > 0 else 1.0
+        final_score = c['M'] * risk_ratio
+        export_data.append({
+            'Chunk_Name': c['Chunk_ID'], 'Incoming_Req_Per_Cycle': req_per_cyc,
+            'Read_Intensity': read_intensity, 'RB_Locality': rb_locality,
+            'LLC_Miss_Rate': llc_rate, 'M_Cost': c['M'], 'BC_SER': c['BC_SER'],
+            'Final_Score': final_score
+        })
+        
+    if export_data:
+        df = pd.DataFrame(export_data)
+        full_file_path = os.path.join(save_path, f"trace_{display_name}.xlsx")
+        df.to_excel(full_file_path, index=False)
+        print(f" Saved: AI_Training/{scenario_folder}/trace_{display_name}.xlsx")
+    print("\n")
+print("\n" + "#"*60 + "\n TRAINING AI MODEL\n" + "#"*60)
+all_training_data = []
+for root, dirs, files in os.walk(AI_TRAINING_PATH):
+    for file in files:
+        if file.endswith(".xlsx") and not file.startswith("~$"):
+            folder_name = os.path.basename(root)
+            label = next((f"{cfg}" for i, cfg in enumerate(CONFIGS) if f"Scenario_{i+1}" in folder_name), None)
+            if label:
+                try:
+                    df = pd.read_excel(os.path.join(root, file))
+                    df_clean = df[['Incoming_Req_Per_Cycle', 'Read_Intensity', 'RB_Locality', 'LLC_Miss_Rate']].copy()
+                    df_clean['Target_Label'] = label
+                    all_training_data.append(df_clean)
+                except: pass
+
+clf = None
+if all_training_data:
+    dataset = pd.concat(all_training_data, ignore_index=True)
+    X = dataset[['Incoming_Req_Per_Cycle', 'Read_Intensity', 'RB_Locality', 'LLC_Miss_Rate']]
+    y = dataset['Target_Label']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    clf = RandomForestClassifier(n_estimators=100, random_state=42).fit(X_train, y_train)
+    feature_thresholds = {feat: [] for feat in X.columns}
+    for tree in clf.estimators_:
+        tree_ = tree.tree_
+        for i in range(tree_.node_count):
+            if tree_.feature[i] != -2:
+                feature_thresholds[X.columns[tree_.feature[i]]].append(tree_.threshold[i])
+    print("\n AI DECISION BOUNDARIES (Median Thresholds):")
+    print("-" * 50)
+    for feature, thresholds in feature_thresholds.items():
+        if thresholds:
+            med_thresh = sorted(thresholds)[len(thresholds)//2]
+            print(f" {feature:<25} : {med_thresh:.6f}")
+    print("-" * 50)
+    y_pred = clf.predict(X_test)
+    print(f"\n Model Accuracy: {accuracy_score(y_test, y_pred)*100:.2f}%")
+    print("\n Classification Report:\n", classification_report(y_test, y_pred, zero_division=0))
+    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    print(f" TOTAL DATASET SIZE: {len(dataset)} rows\n ↳ Training: {len(X_train)}\n ↳ Testing:  {len(X_test)}")
+    joblib.dump(clf, os.path.join(AI_TRAINING_PATH, 'dram_trefi_model.pkl'))
+else:
+    print(" No training data found.")
+print("\n" + "#"*60 + "\n TESTING NEW TRACES\n" + "#"*60)
+if clf:
+    new_trace_roots = [root for root, dirs, files in os.walk(NEW_TRACE_PATH) if any('64ms' in d for d in dirs)]
+    if not new_trace_roots:
+        print("ℹ No new traces found.")
     else:
-        print(" No valid data found for this trace.")    
-    print("\n\n")
+        for trace_path in new_trace_roots:
+            trace_name = os.path.basename(trace_path)
+            trace_data = process_trace_folder(trace_path)
+            averages = {}
+            avg_base_risk = 1e-20
+            if trace_data.get('64ms'):
+                 avg_base_risk = sum(c['BC_SER'] for c in trace_data['64ms']) / len(trace_data['64ms'])
+            print("=" * 85 + f"\n REPORT: {trace_name} (New Test Trace)\n" + "=" * 85)
+            print(f"{'Config':<8} | {'Avg M (Cost)':<14} | {'Avg BC_SER':<12} | {'Avg Ratio':<10} | {'Avg SCORE':<12}\n" + "-" * 85)
+            
+            for cfg in CONFIGS:
+                chunks = trace_data.get(cfg, [])
+                if not chunks: 
+                    print(f"{cfg:<8} | {'NO DATA':<14} | {'-':<12} | {'-':<10} | {'-':<12}"); continue
+                avg_m = sum(c['M'] for c in chunks) / len(chunks)
+                avg_bc = sum(c['BC_SER'] for c in chunks) / len(chunks)
+                total_weighted_score = 0
+                total_weighted_ratio = 0
+                for c in chunks:
+                    r_ratio = c['BC_SER'] / avg_base_risk if avg_base_risk > 0 else 1.0
+                    total_weighted_score += c['M'] * r_ratio
+                    total_weighted_ratio += r_ratio
+                avg_score = total_weighted_score / len(chunks)
+                avg_ratio = total_weighted_ratio / len(chunks)
+                averages[cfg] = avg_score
+                print(f"{cfg:<8} | {avg_m:<14.4e} | {avg_bc:<12.2e} | {avg_ratio:<10.2f} | {avg_score:<12.4e}")
+            print("-" * 85)
+            true_winner = min(averages, key=averages.get) if averages else "Unknown"
+            ai_prediction = "Unknown"
+            if '64ms' in trace_data and trace_data['64ms']:
+                input_list = []
+                for c in trace_data['64ms']:
+                    req = (c['n_read'] + c['n_write']) / c['tot_cyc'] if c['tot_cyc'] > 0 else 0
+                    total = c['n_read'] + c['n_write']
+                    read = c['n_read'] / total if total > 0 else 0
+                    denom = c['row_hits'] + c['row_miss'] + c['row_conf']
+                    loc = c['row_hits'] / denom if denom > 0 else 0
+                    llc = c['llc_miss'] / c['llc_acc'] if c['llc_acc'] > 0 else 0
+                    input_list.append([req, read, loc, llc])
+                preds = clf.predict(pd.DataFrame(input_list, columns=['Incoming_Req_Per_Cycle', 'Read_Intensity', 'RB_Locality', 'LLC_Miss_Rate']))
+                ai_prediction = Counter(preds).most_common(1)[0][0]
+            print(f" TRUE WINNER (Math): {true_winner}\n AI PREDICTION:      {ai_prediction}")
+            print(f" RESULT: {'MATCH' if true_winner == ai_prediction else 'MISMATCH'}\n")
+print(" Done.")
