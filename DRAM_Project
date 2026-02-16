@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 from sklearn.tree import _tree
+import json
 BASE_PROJECT_PATH = os.path.expanduser('~/Downloads/DramProject')
 AI_TRAINING_PATH = os.path.join(BASE_PROJECT_PATH, 'AI_Training')
 NEW_TRACE_PATH = os.path.join(BASE_PROJECT_PATH, 'New_Trace')
@@ -251,7 +252,7 @@ if export_rows:
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     clf = RandomForestClassifier(
-        n_estimators=3, 
+        n_estimators=7, 
         criterion='entropy', 
         class_weight='balanced_subsample', 
         random_state=42,
@@ -308,12 +309,45 @@ if export_rows:
     for f in range(X.shape[1]):
         print(f" {X.columns[indices[f]]:<25} : {importances[indices[f]]:.4f}")
 
-    threshold_sets = extract_thresholds_per_tree(clf, X.columns, only_important=False, importance_eps=1e-12, dedup_sort=False)
+    threshold_sets = extract_thresholds_per_tree(
+        rf=clf,
+        feature_names=X.columns,
+        only_important=False,    
+        importance_eps=1e-12,
+        dedup_sort=False         
+    )
+
+    print("\n" + "="*40)
+    print(f"THRESHOLDS PER TREE (n_estimators={len(threshold_sets)})")
+    print("="*40)
+
+    for i, tree_dict in enumerate(threshold_sets, start=1):
+        print(f"\nTree {i}:")
+        if not tree_dict:
+            print("  (No important-feature splits in this tree)")
+            continue
+        for feat, thr_list in tree_dict.items():
+            print(f"  {feat:<25} -> {thr_list}")
+
     json_path = os.path.join(AI_TRAINING_PATH, "rf_thresholds_per_tree.json")
-    with open(json_path, "w") as f: json.dump(threshold_sets, f, indent=2)
-    rows = [{"tree": ti, "feature": feat, "threshold": thr} for ti, tree_dict in enumerate(threshold_sets, start=1) for feat, thr_list in tree_dict.items() for thr in thr_list]
-    pd.DataFrame(rows).sort_values(["tree", "feature", "threshold"]).to_csv(os.path.join(AI_TRAINING_PATH, "rf_thresholds_long.csv"), index=False)
+    with open(json_path, "w") as f:
+        json.dump(threshold_sets, f, indent=2)
+
+    rows = []
+    for ti, tree_dict in enumerate(threshold_sets, start=1):
+        for feat, thr_list in tree_dict.items():
+            for thr in thr_list:
+                rows.append({"tree": ti, "feature": feat, "threshold": thr})
+
+    df_thr = pd.DataFrame(rows).sort_values(["tree", "feature", "threshold"])
+    csv_path = os.path.join(AI_TRAINING_PATH, "rf_thresholds_long.csv")
+    df_thr.to_csv(csv_path, index=False)
+
+    print(f"\nSaved thresholds JSON: {json_path}")
+    print(f"Saved thresholds CSV : {csv_path}")
+
     joblib.dump(clf, os.path.join(AI_TRAINING_PATH, 'dram_trefi_model.pkl'))
+
     print("\n" + "="*40)
     print(" VALIDATION PHASE: TESTING NEW TRACES")
     print("="*40)
@@ -404,7 +438,6 @@ if export_rows:
     else:
         print(" No traces found in New_Trace folder. Skipping validation.")
 
-    # Tree Stats
     for i, est in enumerate(clf.estimators_, 1):
         t = est.tree_
         n_splits = sum(t.feature != -2)
