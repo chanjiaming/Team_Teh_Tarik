@@ -16,8 +16,8 @@ DEVICE_Gb = 16.0
 EPS = 1e-30                # protect divide-by-zero for tiny SER
 COEFF = {
     "64ms": 1.0,
-    "96ms": 2.0,
-    "128ms": 4.0
+    "96ms": 2.2628,
+    "128ms": 4.0373
 }
 
 GAMMAS = np.arange(0.1, 0.25, 0.025)
