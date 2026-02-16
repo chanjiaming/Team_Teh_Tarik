@@ -8,7 +8,7 @@ import numpy as np
 
 BASE_PATH = os.path.expanduser('/home/eevee/Documents/team_teh_tarik/result')
 FREQ_MHZ = 1600.0
-CONFIGS = ['64ms', '128ms', '192ms']
+CONFIGS = ['64ms', '96ms', '128ms']
 
 # SER model params (your assumptions)
 FIT_PER_GB = 100.0         # 100 FIT / GB
@@ -16,13 +16,13 @@ DEVICE_Gb = 16.0
 EPS = 1e-30                # protect divide-by-zero for tiny SER
 COEFF = {
     "64ms": 1.0,
-    "128ms": 4.0,
-    "192ms": 9.0,
+    "96ms": 2.0,
+    "128ms": 4.0
 }
 
-# Gamma sweep range (edit freely)
-GAMMAS = [round(x, 2) for x in np.arange(0, 1, 0.025)]
-
+GAMMAS = np.arange(0.1, 0.25, 0.025)
+for gamma in GAMMAS:
+    print(f"Evaluating gamma={gamma}...")
 #GAMMAS = [round(x, 2) for x in [0.00, 0.02, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]]
 
 TRACE_DISPLAY_MAP = {
@@ -135,8 +135,7 @@ for trace_path in sorted(trace_roots):
             })
 
         except Exception as e:
-            # skip broken runs, keep scanning
-            # print(f"[WARN] {trace_key} {cfg}: {e}")
+            print(f"[WARN] {trace_key} {cfg}: {e}")
             continue
 
 # Average per trace×cfg (in case multiple chunks exist)
@@ -162,7 +161,7 @@ for t in sorted(data.keys()):
         valid_traces.append(t)
 
 if not valid_traces:
-    raise SystemExit("No valid traces found with complete 64/128/192ms runs.")
+    raise SystemExit("No valid traces found with complete 64/96/128ms runs.")
 
 print(f"Found {len(valid_traces)} valid traces: {valid_traces}")
 
@@ -220,8 +219,8 @@ for gamma in GAMMAS:
         "M_impr": M_impr,
         "rel_deg_gm": rel_deg_gm,
         "count_64": counts["64ms"],
+        "count_96": counts["96ms"],
         "count_128": counts["128ms"],
-        "count_192": counts["192ms"],
     })
     per_gamma_selections[gamma] = selections
 
@@ -247,10 +246,10 @@ final_sel = per_gamma_selections[best_gamma]
 
 # Print summary
 print("\n=== Gamma Sweep Summary ===")
-print("gamma | geoM(M_sel/M64) | geoM(rel_deg) | geoM M_impr | #64 #128 #192")
+print("gamma | geoM(M_sel/M64) | geoM(rel_deg) | geoM M_impr | #64 #96 #128")
 for r in gamma_results_sorted:
     print(f"{r['gamma']:<5} | {r['M_norm_gm']:.6g}        | {r['rel_deg_gm']:.6g}     | {r['M_impr']:.4f}    | "
-          f"{r['count_64']:>3} {r['count_128']:>4} {r['count_192']:>4}")
+          f"{r['count_64']:>3} {r['count_96']:>4} {r['count_128']:>4}")
 
 print(f"\n=== Selected Best Gamma (Pareto knee) ===")
 print(f"best_gamma = {best_gamma}  (max distance to end-to-end tradeoff line = {best_dist:.6g})")
