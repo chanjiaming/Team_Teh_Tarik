@@ -1,12 +1,13 @@
 Frontend:
   impl: SimpleO3
   clock_ratio: 8
-  num_expected_insts: 200000
-  traces: /home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/mcf_s-484B.trace
+  num_expected_insts: 200000 
+  traces: 
+  - /home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/mcf_s-484B_chunks/mcf_s-484B_chunk_050.trace
     
   Translation:
-    impl: NoTranslation
-    max_addr: 17179869184 
+    impl: RandomTranslation
+    max_addr: 17179869184 # 16 GB
 
 MemorySystem:
   impl: GenericDRAM
@@ -18,10 +19,10 @@ MemorySystem:
     org:
       preset: DDR5_16Gb_x8
       channel: 1
-      rank: 2
+      rank: 1
 
     timing:
-      preset: DDR5_3200AN
+      preset: DDR5_4800
       tREFI: 3900   # ns  (this targets ~64 ms effective window) #(subject to change once driven by automation.py)
 
     voltage:

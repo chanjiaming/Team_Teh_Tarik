@@ -7,7 +7,17 @@ from tqdm import tqdm
 from typing import Optional
 
 # DPC3 record: 64 bytes
-STRUCT_FMT = "<Q B B 3s 3s 2Q 2Q 16x"
+STRUCT_FMT = "<Q B B 2B 4B 2Q 4Q"
+"""
+i) instruction pointer (8B)
+ii) “is branch” (1B)
+iii) branch taken (1B)
+iv) destination registers (2x1B)
+v) source registers (4x1B)
+vi) memory destinations (2x8B)
+vii) memory sources (4x8B)
+"""
+
 RECORD_SIZE = 64
 UNPACKER = struct.Struct(STRUCT_FMT)
 
@@ -23,7 +33,7 @@ def convert_addr(raw: int, phys_capacity: int, shift: int) -> int:
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Convert DPC3 .xz trace to Ramulator2 SimpleO3Trace format with optional chunking"
+        description="Convert DPC3 .xz trace to Ramulator2 SimpleO3 Trace format with optional chunking"
     )
     ap.add_argument("input_xz", help="Input DPC trace (.xz)")
     ap.add_argument("--max-chunks", type=int, default=50,
@@ -34,7 +44,7 @@ def main():
     ap.add_argument("--inst-limit", type=int, default=0, help="Max instructions to process (0 = unlimited)")
     ap.add_argument("--line-limit", type=int, default=0, help="Max output lines to write (0 = unlimited)")
     ap.add_argument("--phys-capacity", type=int, default=16 * 1024**3,
-                    help="Physical address space in bytes (default 16GiB)")
+                    help="Physical address space in bytes (default 16GB)")
     ap.add_argument("--shift", type=int, default=0, help="Address left shift (0 if byte addr, 6 if cacheline addr)")
     ap.add_argument("--store-mode", choices=["ignore", "rfo", "paired"], default="rfo",
                     help="How to handle store-only ops: ignore | rfo | paired")
@@ -104,11 +114,19 @@ def main():
                     break
 
                 pbar.update(1)
-
-                ip, is_branch, taken, d_reg, s_reg, d0, d1, s0, s1 = UNPACKER.unpack(rec)
+                #STRUCT_FMT = "<Q B B 2B 4B 2Q 4Q>"
+                (
+                    ip,
+                    is_branch,
+                    taken,
+                    d_reg0, d_reg1,
+                    s_reg0, s_reg1, s_reg2, s_reg3,
+                    d0, d1,
+                    s0, s1, s2, s3
+                ) = UNPACKER.unpack(rec)
                 insts += 1
 
-                loads = [a for a in (s0, s1) if a]
+                loads = [a for a in (s0, s1, s2, s3) if a]
                 stores = [a for a in (d0, d1) if a]
 
                 # No memory ops -> just a bubble
