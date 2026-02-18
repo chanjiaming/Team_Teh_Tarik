@@ -15,10 +15,10 @@ AI_TRAINING_PATH = os.path.join(BASE_PROJECT_PATH, 'AI_Training')
 NEW_TRACE_PATH = os.path.join(BASE_PROJECT_PATH, 'New_Trace')
 FREQ_MHZ = 1600.0
 DEVICE_Gb = 16.0
-CONFIGS = ['64ms', '96ms', '128ms']
+CONFIGS = ['32ms', '48ms', '64ms']
 FIT_PER_GB = 100.0 
 EPS = 1e-30
-COEFF = { "64ms": 1.0, "96ms": 2.2628, "128ms": 4.0373 }
+COEFF = { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0373 }
 GAMMAS = np.arange(0.1, 0.25, 0.025)
 print(f" Project Base: {BASE_PROJECT_PATH}")
 
@@ -146,18 +146,18 @@ for gamma in GAMMAS:
     M_norms, ratio_norms = [], []
     selections = {}
     for t in valid_train_traces:
-        M64 = data_train[t]["64ms"]["M"]
-        SER64 = max(data_train[t]["64ms"]["SER"], EPS)
+        M32 = data_train[t]["32ms"]["M"]
+        SER32 = max(data_train[t]["32ms"]["SER"], EPS)
         best_cfg, best_score, best_M, best_ratio = None, float("inf"), 0, 0
         for cfg in CONFIGS:
             M = data_train[t][cfg]["M"]
             SER = max(data_train[t][cfg]["SER"], EPS)
-            ratio = SER / SER64
+            ratio = SER / SER32
             score = M * ratio * (COEFF[cfg] ** gamma)
             if score < best_score:
                 best_score, best_cfg, best_M, best_ratio = score, cfg, M, ratio
         selections[t] = {"cfg": best_cfg, "M": best_M, "ratio": best_ratio}
-        M_norms.append(best_M / M64)
+        M_norms.append(best_M / M32)
         ratio_norms.append(best_ratio)
     gamma_results.append({
         "gamma": gamma,
@@ -173,11 +173,11 @@ best_gamma = max(g_sorted, key=lambda r: point_line_distance(
 final_sel = per_gamma_selections[best_gamma]
 print(f"\n OPTIMAL GAMMA: {best_gamma:.3f}")
 print("\n=== Final t_REFI Selection per Trace (Training Data) ===")
-print(f"{'Trace Name':<30} | {'Selected':<8} | {'M/M64':<8} | {'SER Ratio':<8}")
+print(f"{'Trace Name':<30} | {'Selected':<8} | {'M/M32':<8} | {'SER Ratio':<8}")
 print("-" * 65)
 for t in valid_train_traces:
     sel = final_sel[t]
-    m_norm = sel["M"] / data_train[t]["64ms"]["M"]
+    m_norm = sel["M"] / data_train[t]["32ms"]["M"]
     print(f"{t:<30} | {sel['cfg']:<8} | {m_norm:.4f}   | {sel['ratio']:.4f}")
 print("-" * 65 + "\n")
 print(" Preparing Training Data...")
@@ -213,22 +213,22 @@ top_level_model.fit(X, y)
 print("\n Tuning Top Level Safety Margin...")
 probs = top_level_model.predict_proba(X)
 classes = list(voting_clf.classes_)
-idx_128, idx_96 = classes.index('128ms'), classes.index('96ms')
+idx_64, idx_48 = classes.index('64ms'), classes.index('48ms')
 best_margin, best_acc = 0.0, 0.0
 for margin in np.arange(0.0, 0.21, 0.01):
     temp_preds = []
     for p in probs:
         top = np.argmax(p)
         label = classes[top]
-        if label == '128ms' and (p[idx_128] - p[idx_96]) < margin:
-            temp_preds.append('96ms')
+        if label == '64ms' and (p[idx_64] - p[idx_48]) < margin:
+            temp_preds.append('48ms')
         else:
             temp_preds.append(label)
     cm_temp = confusion_matrix(y, temp_preds, labels=CONFIGS)
-    r_96_128 = cm_temp[1][2]
-    r_64_128 = cm_temp[0][2]
-    r_64_96 = cm_temp[0][1]
-    total_risk = r_96_128 + r_64_128 + r_64_96
+    r_48_64 = cm_temp[1][2]
+    r_32_64 = cm_temp[0][2]
+    r_32_48 = cm_temp[0][1]
+    total_risk = r_48_64 + r_32_64 + r_32_48
     acc = accuracy_score(y, temp_preds)
     
     if total_risk == 0:
@@ -240,8 +240,8 @@ top_level_preds_safe = []
 for p in probs:
     top = np.argmax(p)
     label = classes[top]
-    if label == '128ms' and (p[idx_128] - p[idx_96]) < best_margin:
-        top_level_preds_safe.append('96ms')
+    if label == '64ms' and (p[idx_64] - p[idx_48]) < best_margin:
+        top_level_preds_safe.append('48ms')
     else:
         top_level_preds_safe.append(label)
 print("\n" + "="*40 + "\n TOP LEVEL TRAINING CONFUSION MATRIX \n" + "="*40)
@@ -256,8 +256,8 @@ y_safe_labels = []
 for p in top_level_probs:
     top = np.argmax(p)
     label = classes[top]
-    if label == '128ms' and (p[idx_128] - p[idx_96]) < best_margin:
-        y_safe_labels.append('96ms')
+    if label == '64ms' and (p[idx_64] - p[idx_48]) < best_margin:
+        y_safe_labels.append('48ms')
     else:
         y_safe_labels.append(label)
 base_level_tree = DecisionTreeClassifier(max_depth=6, random_state=42, class_weight='balanced')
@@ -306,13 +306,13 @@ else:
     val_rows = []
     for t, cfgs in agg_val.items():
         if not all(c in cfgs for c in CONFIGS): continue
-        M64 = statistics.mean(r["M"] for r in cfgs["64ms"])
-        SER64 = max(statistics.mean(r["SER"] for r in cfgs["64ms"]), EPS)
+        M32 = statistics.mean(r["M"] for r in cfgs["32ms"])
+        SER32 = max(statistics.mean(r["SER"] for r in cfgs["32ms"]), EPS)
         best_c, best_s = None, float("inf")
         for cfg in CONFIGS:
             M = statistics.mean(r["M"] for r in cfgs[cfg])
             SER = max(statistics.mean(r["SER"] for r in cfgs[cfg]), EPS)
-            score = M * (SER/SER64) * (COEFF[cfg] ** best_gamma)
+            score = M * (SER/SER32) * (COEFF[cfg] ** best_gamma)
             if score < best_s: best_s, best_c = score, cfg
             
         for run in cfgs[best_c]:
