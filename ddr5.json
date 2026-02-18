@@ -24,7 +24,7 @@
       "RAADEC": 0
     },
     "mempowerspec": {
-      "vdd": 1.2,
+      "vdd": 1.1,
       "idd0": 0.139,
       "idd2n": 0.109,
       "idd3n": 0.124,
@@ -36,7 +36,7 @@
       "idd6n": 0.06,
       "idd2p": 0.093,
       "idd3p": 0.11,
-      "vpp": 1.2,
+      "vpp": 1.8,
       "ipp0": 0,
       "ipp2n": 0,
       "ipp3n": 0,
