@@ -11,7 +11,7 @@ import pandas as pd
 BASE_PATH = os.path.expanduser('/home/eevee/Documents/team_teh_tarik/result')
 AI_TRAINING_PATH = "/home/eevee/Documents/team_teh_tarik/Joshua_files"
 FREQ_MHZ = 1600.0
-CONFIGS = ['64ms', '96ms', '128ms']
+CONFIGS = ['32ms', '48ms', '64ms']
 
 # SER model params
 FIT_PER_GB = 100.0         # 100 FIT / GB
