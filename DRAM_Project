@@ -18,8 +18,8 @@ DEVICE_Gb = 16.0
 CONFIGS = ['32ms', '48ms', '64ms']
 FIT_PER_GB = 100.0 
 EPS = 1e-30
-COEFF = { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0373 }
-GAMMAS = np.arange(0.1, 0.25, 0.025)
+COEFF = { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0395 }
+GAMMAS = np.arange(0.1, 0.2, 0.025)
 print(f" Project Base: {BASE_PROJECT_PATH}")
 
 if os.path.exists(AI_TRAINING_PATH):

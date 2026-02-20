@@ -1,0 +1,21 @@
+Rule_ID,Prediction,Logic
+1,64ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle <= 0.0014
+2,32ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle > 0.0014 AND Incoming_Req_Per_Cycle <= 0.0064 AND RB_Locality <= 0.7169
+3,32ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle > 0.0014 AND Incoming_Req_Per_Cycle <= 0.0064 AND RB_Locality > 0.7169 AND Incoming_Req_Per_Cycle <= 0.0056
+4,64ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle > 0.0014 AND Incoming_Req_Per_Cycle <= 0.0064 AND RB_Locality > 0.7169 AND Incoming_Req_Per_Cycle > 0.0056
+5,64ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle > 0.0014 AND Incoming_Req_Per_Cycle > 0.0064 AND Incoming_Req_Per_Cycle <= 0.0080
+6,64ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle > 0.0014 AND Incoming_Req_Per_Cycle > 0.0064 AND Incoming_Req_Per_Cycle > 0.0080 AND Traffic_Risk <= 0.0023
+7,32ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle <= 0.0090 AND Incoming_Req_Per_Cycle > 0.0014 AND Incoming_Req_Per_Cycle > 0.0064 AND Incoming_Req_Per_Cycle > 0.0080 AND Traffic_Risk > 0.0023
+8,32ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle > 0.0090 AND RB_Locality <= 0.7737
+9,32ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle > 0.0090 AND RB_Locality > 0.7737 AND Conflict_Load <= 0.1204
+10,48ms,RB_Locality <= 0.7961 AND Incoming_Req_Per_Cycle > 0.0090 AND RB_Locality > 0.7737 AND Conflict_Load > 0.1204
+11,48ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle <= 0.0171 AND RB_Locality <= 0.9322 AND Conflict_Load <= 0.0583 AND LLC_Miss_Rate <= 0.0243
+12,32ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle <= 0.0171 AND RB_Locality <= 0.9322 AND Conflict_Load <= 0.0583 AND LLC_Miss_Rate > 0.0243 AND RB_Locality <= 0.9123
+13,32ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle <= 0.0171 AND RB_Locality <= 0.9322 AND Conflict_Load <= 0.0583 AND LLC_Miss_Rate > 0.0243 AND RB_Locality > 0.9123
+14,48ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle <= 0.0171 AND RB_Locality <= 0.9322 AND Conflict_Load > 0.0583
+15,48ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle <= 0.0171 AND RB_Locality > 0.9322
+16,32ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle > 0.0171 AND Conflict_Load <= 0.0116
+17,48ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle > 0.0171 AND Conflict_Load > 0.0116 AND Conflict_Load <= 0.0194 AND RB_Conflict_Rate <= 0.0189
+18,32ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle > 0.0171 AND Conflict_Load > 0.0116 AND Conflict_Load <= 0.0194 AND RB_Conflict_Rate > 0.0189
+19,48ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle > 0.0171 AND Conflict_Load > 0.0116 AND Conflict_Load > 0.0194 AND Conflict_Load <= 0.0199
+20,48ms,RB_Locality > 0.7961 AND Incoming_Req_Per_Cycle > 0.0171 AND Conflict_Load > 0.0116 AND Conflict_Load > 0.0194 AND Conflict_Load > 0.0199

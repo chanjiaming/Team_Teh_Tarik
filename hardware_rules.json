@@ -1,0 +1,577 @@
+[
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.0013630152097903192
+      }
+    ],
+    "prediction": "64ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.0013630152097903192
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.006385142914950848
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7168757617473602
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.0013630152097903192
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.006385142914950848
+      },
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7168757617473602
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.005618626484647393
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.0013630152097903192
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.006385142914950848
+      },
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7168757617473602
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.005618626484647393
+      }
+    ],
+    "prediction": "64ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.0013630152097903192
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.006385142914950848
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.008001793175935745
+      }
+    ],
+    "prediction": "64ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.0013630152097903192
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.006385142914950848
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.008001793175935745
+      },
+      {
+        "feature": "Traffic_Risk",
+        "op": "<=",
+        "value": 0.002290495438501239
+      }
+    ],
+    "prediction": "64ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.0013630152097903192
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.006385142914950848
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.008001793175935745
+      },
+      {
+        "feature": "Traffic_Risk",
+        "op": ">",
+        "value": 0.002290495438501239
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7736682295799255
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7736682295799255
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.1203557513654232
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.00895525049418211
+      },
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7736682295799255
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.1203557513654232
+      }
+    ],
+    "prediction": "48ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.9321872889995575
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.05831650272011757
+      },
+      {
+        "feature": "LLC_Miss_Rate",
+        "op": "<=",
+        "value": 0.024273269809782505
+      }
+    ],
+    "prediction": "48ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.9321872889995575
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.05831650272011757
+      },
+      {
+        "feature": "LLC_Miss_Rate",
+        "op": ">",
+        "value": 0.024273269809782505
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.9123291969299316
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.9321872889995575
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.05831650272011757
+      },
+      {
+        "feature": "LLC_Miss_Rate",
+        "op": ">",
+        "value": 0.024273269809782505
+      },
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.9123291969299316
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "RB_Locality",
+        "op": "<=",
+        "value": 0.9321872889995575
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.05831650272011757
+      }
+    ],
+    "prediction": "48ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": "<=",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.9321872889995575
+      }
+    ],
+    "prediction": "48ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.011571358423680067
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.011571358423680067
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.019412904046475887
+      },
+      {
+        "feature": "RB_Conflict_Rate",
+        "op": "<=",
+        "value": 0.018866734579205513
+      }
+    ],
+    "prediction": "48ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.011571358423680067
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.019412904046475887
+      },
+      {
+        "feature": "RB_Conflict_Rate",
+        "op": ">",
+        "value": 0.018866734579205513
+      }
+    ],
+    "prediction": "32ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.011571358423680067
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.019412904046475887
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": "<=",
+        "value": 0.019939671270549297
+      }
+    ],
+    "prediction": "48ms"
+  },
+  {
+    "rules": [
+      {
+        "feature": "RB_Locality",
+        "op": ">",
+        "value": 0.7961029708385468
+      },
+      {
+        "feature": "Incoming_Req_Per_Cycle",
+        "op": ">",
+        "value": 0.01707493420690298
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.011571358423680067
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.019412904046475887
+      },
+      {
+        "feature": "Conflict_Load",
+        "op": ">",
+        "value": 0.019939671270549297
+      }
+    ],
+    "prediction": "48ms"
+  }
+]
