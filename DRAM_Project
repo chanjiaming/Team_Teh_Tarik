@@ -13,12 +13,12 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 BASE_PROJECT_PATH = os.path.expanduser('~/Downloads/DramProject')
 AI_TRAINING_PATH = os.path.join(BASE_PROJECT_PATH, 'AI_Training')
 NEW_TRACE_PATH = os.path.join(BASE_PROJECT_PATH, 'New_Trace')
-FREQ_MHZ = 1600.0
-DEVICE_Gb = 16.0
+FREQ_MHZ = 2400
+DEVICE_Gb = 16 * 20     #20 dies in total, 16 storage + 4 ECC
 CONFIGS = ['32ms', '48ms', '64ms']
 FIT_PER_GB = 100.0 
 EPS = 1e-30
-COEFF = { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0395 }
+RATIO_RETENT_ERR = { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0395 }
 GAMMAS = np.arange(0.1, 0.25, 0.025)
 print(f" Project Base: {BASE_PROJECT_PATH}")
 
@@ -177,10 +177,10 @@ for gamma in GAMMAS:
         for cfg in CONFIGS:
             M = all_data[t][cfg]["M"]
             SER = max(all_data[t][cfg]["SER"], EPS)
-            ratio = SER / SER32
-            score = M * ratio * (COEFF[cfg] ** gamma)
+            RATIO_SER = SER / SER32
+            score = M * RATIO_SER * (RATIO_RETENT_ERR[cfg] ** gamma)
             if score < best_score:
-                best_score, best_cfg, best_M, best_ratio = score, cfg, M, ratio
+                best_score, best_cfg, best_M, best_ratio = score, cfg, M, RATIO_SER
         selections[t] = {"cfg": best_cfg, "M": best_M, "ratio": best_ratio}
         M_norms.append(best_M / M32)
         ratio_norms.append(best_ratio)
