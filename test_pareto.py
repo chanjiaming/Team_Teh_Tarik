@@ -18,7 +18,7 @@ FIT_PER_GB = 100.0         # 100 FIT / GB
 DEVICE_Gb = 16.0 
 EPS = 1e-30                # protect divide-by-zero
 # Using the precise coefficients from your updated math
-COEFF = { "64ms": 1.0, "96ms": 2.2628, "128ms": 4.0373 }
+ratio_retent =  { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0395 }
 GAMMAS = np.arange(0.1, 0.25, 0.025)
 
 # --- Regex Patterns (Performance & AI Features) ---
@@ -151,16 +151,16 @@ per_gamma_selections = {}
 for gamma in GAMMAS:
     selections, M_norms, ratio_norms, counts = {}, [], [], Counter()
     for t in valid_traces:
-        M64, SER64 = data[t]["64ms"]["M"], max(data[t]["64ms"]["SER"], EPS)
+        M64, SER64 = data[t]["48ms"]["M"], max(data[t]["48ms"]["SER"], EPS)
         best_cfg, best_score, best_M, best_ratio = None, float("inf"), 0, 0
 
         for cfg in CONFIGS:
             M, SER = data[t][cfg]["M"], max(data[t][cfg]["SER"], EPS)
-            ratio = SER / SER64
+            ratio_ser = SER / SER64
             # Score formula: Score = M * ratio * (COEFF^gamma)
-            score = M * ratio * (COEFF[cfg] ** gamma)
+            score = M * ratio_ser * (ratio_retent[cfg] ** gamma)
             if score < best_score:
-                best_score, best_cfg, best_M, best_ratio = score, cfg, M, ratio
+                best_score, best_cfg, best_M, best_ratio = score, cfg, M, ratio_ser
 
         selections[t] = {"cfg": best_cfg, "M": best_M, "ratio": best_ratio}
         counts[best_cfg] += 1
