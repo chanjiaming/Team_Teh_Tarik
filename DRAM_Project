@@ -19,7 +19,7 @@ CONFIGS = ['32ms', '48ms', '64ms']
 FIT_PER_GB = 100.0 
 EPS = 1e-30
 COEFF = { "32ms": 1.0, "48ms": 2.2628, "64ms": 4.0395 }
-GAMMAS = np.arange(0.1, 0.2, 0.025)
+GAMMAS = np.arange(0.1, 0.25, 0.025)
 print(f" Project Base: {BASE_PROJECT_PATH}")
 
 if os.path.exists(AI_TRAINING_PATH):
@@ -27,6 +27,7 @@ if os.path.exists(AI_TRAINING_PATH):
 os.makedirs(AI_TRAINING_PATH)
 for i in range(len(CONFIGS)):
     os.makedirs(os.path.join(AI_TRAINING_PATH, f"Scenario_{i+1}"), exist_ok=True)
+
 ENERGY_RE = re.compile(r"Total Energy ->\s*([\d\.eE\-\+]+)")
 LAT_RE    = re.compile(r"avg_read_latency_0:\s*([\d\.]+)")
 CYC_RE    = re.compile(r"memory_system_cycles:\s*([\d\.]+)")
@@ -58,7 +59,6 @@ def point_line_distance(px, py, ax, ay, bx, by):
     return abs(vx*wy - vy*wx) / math.sqrt(denom)
 
 def extract_threshold_values(tree, feature_names):
-    """Extracts the exact split values for each feature."""
     tree_ = tree.tree_
     thresholds = defaultdict(list)
     for i in range(tree_.node_count):
@@ -66,7 +66,6 @@ def extract_threshold_values(tree, feature_names):
             feat_name = feature_names[tree_.feature[i]]
             threshold_val = tree_.threshold[i]
             thresholds[feat_name].append(threshold_val)
-
     return {k: sorted(list(set(v))) for k, v in thresholds.items()}
 
 def extract_rules_from_tree(tree, feature_names):
@@ -90,10 +89,18 @@ def extract_rules_from_tree(tree, feature_names):
     recurse(0, [])
     return rules
 
-def load_traces(path):
+def load_traces(path, exclude_dir_names=None):
+    if exclude_dir_names is None:
+        exclude_dir_names = []
+    
     aggregated = defaultdict(lambda: {cfg: [] for cfg in CONFIGS})
     if not os.path.exists(path): return aggregated
+    
     for root, dirs, _ in os.walk(path):
+        for ex in exclude_dir_names:
+            if ex in dirs:
+                dirs.remove(ex)
+                
         if any(c in d for c in CONFIGS for d in dirs):
             trace_name = os.path.basename(root)
             trace_key = trace_name.split('_')[0] if '_' in trace_name else trace_name
@@ -127,7 +134,7 @@ def load_traces(path):
     return aggregated
 
 print(" Loading Training Traces...")
-agg_train = load_traces(BASE_PROJECT_PATH)
+agg_train = load_traces(BASE_PROJECT_PATH, exclude_dir_names=['New_Trace', 'AI_Training'])
 data_train = defaultdict(dict)
 for t, cfgs in agg_train.items():
     for cfg, runs in cfgs.items():
@@ -139,19 +146,37 @@ for t, cfgs in agg_train.items():
             }
 valid_train_traces = sorted([t for t in data_train if all(cfg in data_train[t] for cfg in CONFIGS)])
 print(f" Loaded {len(valid_train_traces)} valid training traces.")
-print("  Running Pareto-Knee Gamma Sweep...")
+
+print(" Loading Validation Traces...")
+agg_val = load_traces(NEW_TRACE_PATH)
+data_val = defaultdict(dict)
+for t, cfgs in agg_val.items():
+    for cfg, runs in cfgs.items():
+        if runs:
+            data_val[t][cfg] = {
+                "M": statistics.mean(r["M"] for r in runs),
+                "SER": statistics.mean(r["SER"] for r in runs),
+                "runs": runs
+            }
+valid_val_traces = sorted([t for t in data_val if all(cfg in data_val[t] for cfg in CONFIGS)])
+print(f" Loaded {len(valid_val_traces)} valid validation traces.")
+
+print("\n  Running Global Pareto-Knee Gamma Sweep (Combining All Traces)...")
+all_data = {**data_train, **data_val}
+all_valid_traces = valid_train_traces + valid_val_traces
+
 gamma_results = []
 per_gamma_selections = {}
 for gamma in GAMMAS:
     M_norms, ratio_norms = [], []
     selections = {}
-    for t in valid_train_traces:
-        M32 = data_train[t]["32ms"]["M"]
-        SER32 = max(data_train[t]["32ms"]["SER"], EPS)
+    for t in all_valid_traces:
+        M32 = all_data[t]["32ms"]["M"]
+        SER32 = max(all_data[t]["32ms"]["SER"], EPS)
         best_cfg, best_score, best_M, best_ratio = None, float("inf"), 0, 0
         for cfg in CONFIGS:
-            M = data_train[t][cfg]["M"]
-            SER = max(data_train[t][cfg]["SER"], EPS)
+            M = all_data[t][cfg]["M"]
+            SER = max(all_data[t][cfg]["SER"], EPS)
             ratio = SER / SER32
             score = M * ratio * (COEFF[cfg] ** gamma)
             if score < best_score:
@@ -165,25 +190,35 @@ for gamma in GAMMAS:
         "rel_deg_gm": geomean(ratio_norms)
     })
     per_gamma_selections[gamma] = selections
+
 g_sorted = sorted(gamma_results, key=lambda d: d["gamma"])
 A, B = g_sorted[0], g_sorted[-1]
 best_gamma = max(g_sorted, key=lambda r: point_line_distance(
     r["rel_deg_gm"], r["M_impr"], A["rel_deg_gm"], A["M_impr"], B["rel_deg_gm"], B["M_impr"]
 ))["gamma"]
-final_sel = per_gamma_selections[best_gamma]
-print(f"\n OPTIMAL GAMMA: {best_gamma:.3f}")
-print("\n=== Final t_REFI Selection per Trace (Training Data) ===")
-print(f"{'Trace Name':<30} | {'Selected':<8} | {'M/M32':<8} | {'SER Ratio':<8}")
-print("-" * 65)
+final_sel_all = per_gamma_selections[best_gamma]
+print(f" OPTIMAL GLOBAL GAMMA: {best_gamma:.3f}")
+final_sel_train = {t: final_sel_all[t] for t in valid_train_traces}
+final_sel_val = {t: final_sel_all[t] for t in valid_val_traces}
+
+print("\n=== Final Ground Truth t_REFI Selection per Trace (All Data) ===")
+print(f"{'Trace Name':<30} | {'Dataset':<10} | {'Selected':<8} | {'M/M32':<8} | {'SER Ratio':<8}")
+print("-" * 75)
 for t in valid_train_traces:
-    sel = final_sel[t]
-    m_norm = sel["M"] / data_train[t]["32ms"]["M"]
-    print(f"{t:<30} | {sel['cfg']:<8} | {m_norm:.4f}   | {sel['ratio']:.4f}")
-print("-" * 65 + "\n")
+    sel = final_sel_train[t]
+    m_norm = sel["M"] / data_train[t]["32ms"]["M"] if data_train[t]["32ms"]["M"] > 0 else 0
+    print(f"{t:<30} | {'Training':<10} | {sel['cfg']:<8} | {m_norm:.4f}   | {sel['ratio']:.4f}")
+
+for t in valid_val_traces:
+    sel = final_sel_val[t]
+    m_norm = sel["M"] / data_val[t]["32ms"]["M"] if data_val[t]["32ms"]["M"] > 0 else 0
+    print(f"{t:<30} | {'Validation':<10} | {sel['cfg']:<8} | {m_norm:.4f}   | {sel['ratio']:.4f}")
+print("-" * 75 + "\n")
+
 print(" Preparing Training Data...")
 train_rows = []
 for t in valid_train_traces:
-    winner = final_sel[t]["cfg"]
+    winner = final_sel_train[t]["cfg"]
     for run in data_train[t][winner]["runs"]:
         train_rows.append({
             'Incoming_Req_Per_Cycle': run['Incoming_Req_Per_Cycle'],
@@ -199,6 +234,7 @@ for t in valid_train_traces:
 df_train = pd.DataFrame(train_rows)
 X = df_train.drop(columns=['Label'])
 y = df_train['Label']
+
 print("\n Training TOP LEVEL Model")
 clf1 = RandomForestClassifier(n_estimators=100, class_weight='balanced_subsample', random_state=42)
 clf2 = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=42)
@@ -210,11 +246,13 @@ top_level_model = Pipeline([
     ('ensemble', voting_clf)
 ])
 top_level_model.fit(X, y)
+
 print("\n Tuning Top Level Safety Margin...")
 probs = top_level_model.predict_proba(X)
 classes = list(voting_clf.classes_)
 idx_64, idx_48 = classes.index('64ms'), classes.index('48ms')
 best_margin, best_acc = 0.0, 0.0
+
 for margin in np.arange(0.0, 0.21, 0.01):
     temp_preds = []
     for p in probs:
@@ -236,6 +274,7 @@ for margin in np.arange(0.0, 0.21, 0.01):
             best_acc = acc
             best_margin = margin
 print(f" Top Level Margin: {best_margin*100:.1f}%")
+
 top_level_preds_safe = []
 for p in probs:
     top = np.argmax(p)
@@ -244,12 +283,14 @@ for p in probs:
         top_level_preds_safe.append('48ms')
     else:
         top_level_preds_safe.append(label)
+
 print("\n" + "="*40 + "\n TOP LEVEL TRAINING CONFUSION MATRIX \n" + "="*40)
 print(f"Top Level Accuracy (Safe): {accuracy_score(y, top_level_preds_safe)*100:.2f}%")
 cm_top = confusion_matrix(y, top_level_preds_safe, labels=CONFIGS)
 print(f"{'True \\ Pred':<12}", end=""); [print(f"{c:<8}", end="") for c in CONFIGS]; print()
 for i, row in enumerate(cm_top):
     print(f"{CONFIGS[i]:<12}", end=""); [print(f"{val:<8}", end="") for val in row]; print()
+
 print("\n Transferring to BASE LEVEL Tree")
 top_level_probs = top_level_model.predict_proba(X)
 y_safe_labels = []
@@ -260,9 +301,11 @@ for p in top_level_probs:
         y_safe_labels.append('48ms')
     else:
         y_safe_labels.append(label)
+
 base_level_tree = DecisionTreeClassifier(max_depth=6, random_state=42, class_weight='balanced')
 base_level_tree.fit(X, y_safe_labels)
 train_preds_base = base_level_tree.predict(X)
+
 print(f"\nBase Level Tree Depth: {base_level_tree.get_depth()}")
 print(f"Base Level Training Accuracy (vs True Original Labels): {accuracy_score(y, train_preds_base)*100:.2f}%")
 print("\n" + "="*40 + "\n  BASE LEVEL TRAINING CONFUSION MATRIX \n" + "="*40)
@@ -270,20 +313,24 @@ cm_train_base = confusion_matrix(y, train_preds_base, labels=CONFIGS)
 print(f"{'True \\ Pred':<12}", end=""); [print(f"{c:<8}", end="") for c in CONFIGS]; print()
 for i, row in enumerate(cm_train_base):
     print(f"{CONFIGS[i]:<12}", end=""); [print(f"{val:<8}", end="") for val in row]; print()
+
 print("\n" + "="*40 + "\n  BASE LEVEL TREE STRUCTURE (Threshold Nodes) \n" + "="*40)
 tree_rules = export_text(base_level_tree, feature_names=list(X.columns))
 print(tree_rules)
+
 print("\n Extracting Hardware Thresholds from Base Level...")
 rules = extract_rules_from_tree(base_level_tree, X.columns)
 json_path = os.path.join(AI_TRAINING_PATH, "hardware_rules.json")
 with open(json_path, "w") as f:
     json.dump(rules, f, indent=2)
+
 csv_rows = []
 for i, r in enumerate(rules):
     pred = r['prediction']
     rule_str = " AND ".join([f"{c['feature']} {c['op']} {c['value']:.4f}" for c in r['rules']])
     csv_rows.append({"Rule_ID": i+1, "Prediction": pred, "Logic": rule_str})
 pd.DataFrame(csv_rows).to_csv(os.path.join(AI_TRAINING_PATH, "hardware_logic.csv"), index=False)
+
 thresholds = extract_threshold_values(base_level_tree, X.columns)
 print("\n" + "="*40 + "\n  HARDWARE PARAMETER LIST (Threshold Values) \n" + "="*40)
 print(f"{'Feature':<25} | {'Count':<5} | {'Cutoff Values'}")
@@ -291,46 +338,54 @@ print("-" * 65)
 for feat, vals in thresholds.items():
     val_str = ", ".join([f"{v:.4f}" for v in vals])
     print(f"{feat:<25} | {len(vals):<5} | {val_str}")
+
 thresh_rows = []
 for feat, vals in thresholds.items():
     for v in vals:
         thresh_rows.append({"Feature": feat, "Threshold": v})
 pd.DataFrame(thresh_rows).to_csv(os.path.join(AI_TRAINING_PATH, "hardware_thresholds_flat.csv"), index=False)
 print(f"Saved: {json_path}")
-print("\n" + "="*40 + "\n  VALIDATION PHASE (Using Base Level Tree) \n" + "="*40)
-agg_val = load_traces(NEW_TRACE_PATH)
 
-if not agg_val:
-    print(" No traces found.")
+print("\n" + "="*40 + "\n  VALIDATION PHASE (Using Base Level Tree) \n" + "="*40)
+
+if not valid_val_traces:
+    print(" No valid traces found in New_Trace.")
 else:
     val_rows = []
-    for t, cfgs in agg_val.items():
-        if not all(c in cfgs for c in CONFIGS): continue
-        M32 = statistics.mean(r["M"] for r in cfgs["32ms"])
-        SER32 = max(statistics.mean(r["SER"] for r in cfgs["32ms"]), EPS)
-        best_c, best_s = None, float("inf")
-        for cfg in CONFIGS:
-            M = statistics.mean(r["M"] for r in cfgs[cfg])
-            SER = max(statistics.mean(r["SER"] for r in cfgs[cfg]), EPS)
-            score = M * (SER/SER32) * (COEFF[cfg] ** best_gamma)
-            if score < best_s: best_s, best_c = score, cfg
-            
-        for run in cfgs[best_c]:
-            val_rows.append({
+    
+    print(f"{'Trace Name':<30} | {'Calculated (Score)':<18} | {'Predicted (AI)':<15}")
+    print("-" * 75)
+    
+    for t in valid_val_traces:
+        actual_winner = final_sel_val[t]["cfg"]
+        trace_features = []
+        for run in data_val[t][actual_winner]["runs"]:
+            trace_features.append({
                 'Incoming_Req_Per_Cycle': run['Incoming_Req_Per_Cycle'],
                 'Read_Intensity': run['Read_Intensity'],
                 'RB_Locality': run['RB_Locality'],
                 'RB_Conflict_Rate': run['RB_Conflict_Rate'],
                 'LLC_Miss_Rate': run['LLC_Miss_Rate'],
                 'Traffic_Risk': run['Incoming_Req_Per_Cycle'] * (1.0 - run['RB_Locality']),
-                'Conflict_Load': run['RB_Conflict_Rate'] * run['Read_Intensity'],
-                'True_Label': best_c
+                'Conflict_Load': run['RB_Conflict_Rate'] * run['Read_Intensity']
             })
+            
+        df_trace = pd.DataFrame(trace_features)
+        preds = base_level_tree.predict(df_trace)
+        predicted_winner = Counter(preds).most_common(1)[0][0]    
+        print(f"{t:<30} | {actual_winner:<18} | {predicted_winner:<15}")
+        for i, run in enumerate(data_val[t][actual_winner]["runs"]):
+            row = trace_features[i].copy()
+            row['True_Label'] = actual_winner
+            val_rows.append(row)
+
+    print("-" * 75 + "\n")
 
     if val_rows:
         df_val = pd.DataFrame(val_rows)
         X_val = df_val.drop(columns=['True_Label'])
         y_val = df_val['True_Label']
+        
         preds_base = base_level_tree.predict(X_val)
         print(f"\n Base Level Validation Accuracy: {accuracy_score(y_val, preds_base)*100:.2f}%")  
         print("\n VALIDATION CONFUSION MATRIX (Hardware Logic):")
@@ -338,6 +393,5 @@ else:
         print(f"{'True \\ Pred':<12}", end=""); [print(f"{c:<8}", end="") for c in CONFIGS]; print()
         for i, row in enumerate(cm):
             print(f"{CONFIGS[i]:<12}", end=""); [print(f"{val:<8}", end="") for val in row]; print()
-    else:
-        print(" No valid traces found.")
+
 print("\n Done.")
