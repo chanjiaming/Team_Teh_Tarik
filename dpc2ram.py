@@ -22,7 +22,6 @@ RECORD_SIZE = 64
 UNPACKER = struct.Struct(STRUCT_FMT)
 
 def mask_addr(addr: int, phys_capacity: int) -> int:
-    # keep entropy if power-of-two
     if (phys_capacity & (phys_capacity - 1)) == 0:
         return addr & (phys_capacity - 1)
     return addr % phys_capacity
@@ -43,11 +42,9 @@ def main():
     ap.add_argument("--chunk-lines", type=int, default=0, help="Lines per chunk (0 = no chunking)")
     ap.add_argument("--inst-limit", type=int, default=0, help="Max instructions to process (0 = unlimited)")
     ap.add_argument("--line-limit", type=int, default=0, help="Max output lines to write (0 = unlimited)")
-    ap.add_argument("--phys-capacity", type=int, default=16 * 1024**3,
-                    help="Physical address space in bytes (default 16GB)")
+    ap.add_argument("--phys-capacity", type=int, default=32 * 1024**3,
+                    help="Physical address space in bytes (default 32GB)")
     ap.add_argument("--shift", type=int, default=0, help="Address left shift (0 if byte addr, 6 if cacheline addr)")
-    ap.add_argument("--store-mode", choices=["ignore", "rfo", "paired"], default="rfo",
-                    help="How to handle store-only ops: ignore | rfo | paired")
     ap.add_argument("--trace-name", type=str, default="trace", help="Base name for chunk files")
     args = ap.parse_args()
 
@@ -112,7 +109,7 @@ def main():
                 rec = f_in.read(RECORD_SIZE)
                 if not rec or len(rec) < RECORD_SIZE:
                     break
-
+                #print(f"{rec}")
                 pbar.update(1)
                 #STRUCT_FMT = "<Q B B 2B 4B 2Q 4Q>"
                 (
@@ -125,6 +122,7 @@ def main():
                     s0, s1, s2, s3
                 ) = UNPACKER.unpack(rec)
                 insts += 1
+                #print(f"IP: 0x{ip} | Branch: {is_branch} | Taken: {taken} | DRegs: [{d_reg0}, {d_reg1}] | SRegs: [{s_reg0}, {s_reg1}, {s_reg2}, {s_reg3}] | DAddrs: [{d0}, {d1}] | SAddrs: [{s0}, {s1}, {s2}, {s3}]")
 
                 loads = [a for a in (s0, s1, s2, s3) if a]
                 stores = [a for a in (d0, d1) if a]
@@ -161,7 +159,6 @@ def main():
                     if args.line_limit and lines >= args.line_limit:
                         stop_conversion = True
 
-                # Prefer emitting LOADs as the "load_addr"
                 if loads:
                     wb = stores[0] if stores else None
                     emit(loads[0], wb)
@@ -175,13 +172,7 @@ def main():
 
                 # Store-only instruction
                 if stores:
-                    if args.store_mode == "ignore":
-                        bubble += 1
-                        continue
-                    elif args.store_mode == "rfo":
-                        emit(stores[0], None)  # treat as RFO read
-                    else:  # paired
-                        emit(stores[0], stores[0])  # read + writeback (approx)
+                    emit(stores[0], stores[0])  # read + writeback (approx)
 
     if f_out:
         f_out.close()
