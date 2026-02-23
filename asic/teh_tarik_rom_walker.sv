@@ -30,7 +30,7 @@ module rf_rom_walker (
         for (int i = 0; i < 64; i++) begin
             rom[i] = '{3'd0, 8'd32, 6'd0, 6'd0};
         end
-
+    
         // Node 0: Root
         rom[0] = '{3'd3, 8'd41, 6'd1, 6'd25};   // LLC_Miss <= 41 (0.1591)
 
@@ -38,24 +38,24 @@ module rf_rom_walker (
         rom[1] = '{3'd1, 8'd1,   6'd2,  6'd7 };  // Req <= 1 (≈0.0021)
 
         // Low-Req sub-tree (Rules 1-6)
-        rom[2] = '{3'd5, 8'd247, 6'd3,  6'd6 };  // RB_Loc <= 247 (0.9661)
-        rom[3] = '{3'd4, 8'd0,   6'd4,  6'd62};  // Traffic_Risk <= 0
-        rom[4] = '{3'd0, 8'd48,  6'd0,  6'd0 };  // Rule 1 → 48ms
-        rom[6] = '{3'd0, 8'd64,  6'd0,  6'd0 };  // Rule 6 → 64ms
+        rom[2] = '{3'd5, 8'd247, 6'd3, 6'd6 };  // RB_Loc <= 247 (0.9661)
+        rom[3] = '{3'd4, 8'd0, 6'd4, 6'd62};  // Traffic_Risk <= 0
+        rom[4] = '{3'd0, 8'd48, 6'd0, 6'd0 };  // Rule 1 → 48ms
+        rom[6] = '{3'd0, 8'd64, 6'd0, 6'd0 };  // Rule 6 → 64ms
 
         // Medium-Req sub-tree (0.0021 < Req <= 0.0052)  ← THIS WAS BROKEN
-        rom[7]  = '{3'd1, 8'd1,  6'd8,  6'd15};   // Req <=1 (≈0.0052)
-        rom[8]  = '{3'd5, 8'd237,6'd9,  6'd12};   // RB_Loc <=237 (0.9264)
-        rom[9]  = '{3'd4, 8'd0,  6'd10, 6'd11};   // Traffic <=0
-        rom[10] = '{3'd0, 8'd32, 6'd0,  6'd0 };   // Rules 7+8 → 32ms   ← FIXED
+        rom[7]  = '{3'd1, 8'd1, 6'd8, 6'd15};   // Req <=1 (≈0.0052)
+        rom[8]  = '{3'd5, 8'd237,6'd9, 6'd12};   // RB_Loc <=237 (0.9264)
+        rom[9]  = '{3'd4, 8'd0, 6'd10, 6'd11};   // Traffic <=0
+        rom[10] = '{3'd0, 8'd32, 6'd0, 6'd0 };   // Rules 7+8 → 32ms   ← FIXED
         rom[11] = '{3'd5, 8'd128,6'd63, 6'd63};   // Rules 9+10 → 64ms
-        rom[12] = '{3'd1, 8'd1,  6'd62, 6'd63};   // Rules 11+12 → 48/64
+        rom[12] = '{3'd1, 8'd1, 6'd62, 6'd63};   // Rules 11+12 → 48/64
 
         // High-Req sub-tree (Req > 0.0052) - Rules 13+
         rom[15] = '{3'd5, 8'd154,6'd16, 6'd17};   // RB_Loc <=154 (0.601)
-        rom[16] = '{3'd0, 8'd32, 6'd0,  6'd0 };   // Rule 13 → 32ms
-        rom[17] = '{3'd1, 8'd6,  6'd18, 6'd19};   // Req <=6 (≈0.0215)
-        rom[18] = '{3'd5, 8'd169,6'd62, 6'd63};   // Rule 14/15
+        rom[16] = '{3'd0, 8'd32, 6'd0, 6'd0 };   // Rule 13 → 32ms
+        rom[17] = '{3'd1, 8'd6, 6'd18, 6'd19};   // Req <=6 (≈0.0215)
+        rom[18] = '{3'd5, 8'd169, 6'd62, 6'd63};   // Rule 14/15
         rom[19] = '{3'd1, 8'd18, 6'd20, 6'd21};   // Req >0.0215
         rom[20] = '{3'd3, 8'd33, 6'd62, 6'd63};   // LLC <=33 (0.127)
 
@@ -67,6 +67,7 @@ module rf_rom_walker (
         rom[61] = '{3'd0, 8'd32, 6'd0, 6'd0}; // 32ms
         rom[62] = '{3'd0, 8'd48, 6'd0, 6'd0}; // 48ms
         rom[63] = '{3'd0, 8'd64, 6'd0, 6'd0}; // 64ms
+
     end
 
     logic [7:0] mux_out;
@@ -162,51 +163,61 @@ module tb_rf_rom_walker();
         traffic_risk = 0; rb_locality = 0; rb_conflict = 0;
         // Apply Reset
         #2 rst_n = 1;
-        // TEST CASE 1: Low miss rate, low req_per_cycle, low locality, moderate traffic risk and moderate conflict load
+        // TEST1 (Rule_ID=1) -> Expected 48
+        // Conditions (fixed-point intent): llc_miss <= 0.1591, req <= 0.0021, rb_locality <= 0.9661, traffic_risk <= 0.0001
         req_per_cycle = 8'd0;
-        conflict_load = 8'd20; 
-        llc_miss = 8'd0; 
-        traffic_risk = 8'd2; 
-        rb_locality = 8'd200;
-        rb_conflict = 8'd0;
+        conflict_load = 8'd0;
+        llc_miss = 8'd40;   
+        traffic_risk = 8'd0;   
+        rb_locality = 8'd247;  
+        rb_conflict  = 8'd0;
         #1 start = 1;
         #1 start = 0;
         wait(done);
-        $display("TEST1: Expected 48, got %0d %s", t_refi, (t_refi==48) ? "PASS" : "FAIL");
-      
+        $display("TEST1 (Rule1): Expected 48, got %0d %s", t_refi, (t_refi==48) ? "PASS" : "FAIL");
         #10;
-        // TEST CASE 2: high traffic risk in low branch
-        req_per_cycle = 8'd6; // <7
-        conflict_load = 8'd40; // <43, <78
-        llc_miss = 8'd2; // >1, <=4
-        traffic_risk = 8'd1; // >0
-        rb_locality = 8'd0;
-        rb_conflict = 8'd0;
+
+        // TEST2 (Rule_ID=4) -> Expected 48
+        // Conditions: llc_miss <= 0.1591, req <= 0.0021, rb_locality <= 0.9661, traffic_risk > 0.0001, conflict_load <= 0.0424
+        req_per_cycle = 8'd0;
+        conflict_load = 8'd10;   
+        llc_miss      = 8'd40;
+        traffic_risk  = 8'd1;   
+        rb_locality   = 8'd247;
+        rb_conflict   = 8'd0;
         #1 start = 1;
         #1 start = 0;
         wait(done);
-        $display("TEST2: Expected 32, got %0d %s", t_refi, (t_refi==32) ? "PASS" : "FAIL");
+        $display("TEST2 (Rule4): Expected 48, got %0d %s", t_refi, (t_refi==48) ? "PASS" : "FAIL");
         #10;
-        // TEST CASE 3: high locality, low req in subbranch
-        req_per_cycle = 8'd0; // <1, <7
-        conflict_load = 8'd40; // <43
-        llc_miss = 8'd5; // >4
+
+        // TEST3 (Rule_ID=20) -> Expected 32
+        // Conditions: llc_miss > 0.1591, rb_conflict > 0.0163, req <= 0.0693, rb_locality <= 0.5732
+        req_per_cycle = 8'd17;   // <= floor(0.0693*256)=17
+        conflict_load = 8'd0;
+        llc_miss = 8'd41;  
         traffic_risk = 8'd0;
-        rb_locality = 8'd223; // >222
-        rb_conflict = 8'd0;
+        rb_locality = 8'd146;  
+        rb_conflict = 8'd5; 
         #1 start = 1;
         #1 start = 0;
         wait(done);
-        $display("TEST3: Expected 48, got %0d %s", t_refi, (t_refi==48) ? "PASS" : "FAIL");
-        #10 
-        // TEST CASE 4: low req_per_cycle, high locality, low traffic risk and low conflict load
-        req_per_cycle=8'd0; 
-        conflict_load=0; 
-        traffic_risk=0; 
-        rb_locality=8'd250;
-        #1 start=1; #1 start=0; wait(done);
-        $display("TEST4: Expected 64, got %0d %s", t_refi, (t_refi==64) ? "PASS" : "FAIL");
+        $display("TEST3 (Rule20): Expected 32, got %0d %s", t_refi, (t_refi==32) ? "PASS" : "FAIL");
         #10;
-        $stop;  
+
+        // TEST4 (Rule_ID=22) -> Expected 64
+        // Conditions: llc_miss > 0.1591, rb_conflict > 0.0163, req <= 0.0693,
+        //  rb_locality > 0.5732, llc_miss <= 0.2467, rb_locality > 0.9444
+        req_per_cycle = 8'd17;  
+        conflict_load = 8'd0;
+        llc_miss = 8'd41;  
+        traffic_risk  = 8'd0;
+        rb_locality = 8'd242;  
+        rb_conflict  = 8'd5;    
+        #1 start = 1;
+        #1 start = 0;
+        wait(done);
+        $display("TEST4 (Rule22): Expected 64, got %0d %s", t_refi, (t_refi==64) ? "PASS" : "FAIL");
+        #10;
     end
 endmodule
