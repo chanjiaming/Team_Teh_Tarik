@@ -1,4 +1,4 @@
-module rf_rom_walker (
+module teh_tarik_rom_walker (
     input logic clk,
     input logic rst_n,
     input logic start,
