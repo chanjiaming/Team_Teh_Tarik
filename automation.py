@@ -16,23 +16,28 @@ def automate_pipeline(dpc_file_name):
 
     parts = dpc_file_name.split('.')
     trace_name = parts[1]  
+    import os
 
-    # Script & Binary Locations
-    dpc2ram_script = "/home/eevee/Documents/team_teh_tarik/trace_file/dpc2ram.py"
-    ram2drampower_script = "/home/eevee/Documents/team_teh_tarik/trace_file/ram2drampower.py"
+    
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    dpc2ram_script = os.path.join(BASE_DIR, "trace_file/dpc2ram.py")
+    ram2drampower_script = os.path.join(BASE_DIR, "trace_file/ram2drampower.py")
 
     # DRAMPower Paths
-    drampower_bin = "/home/eevee/Documents/team_teh_tarik/drampower/DRAMPower/build/bin/cli"
-    dram_spec_json = "/home/eevee/Documents/team_teh_tarik/drampower/DRAMPower/tests/tests_drampower/resources/ddr5.json"
-    cli_config_json = "/home/eevee/Documents/team_teh_tarik/drampower/DRAMPower/tests/tests_drampower/resources/cliconfig.json"
+    drampower_root = os.path.join(BASE_DIR, "..", "ramulator", "DRAMPower")
+    drampower_bin = os.path.join(drampower_root, "build/bin/cli")
+    dram_spec_json = os.path.join(drampower_root, "tests/tests_drampower/resources/ddr5.json")
+    cli_config_json = os.path.join(drampower_root, "tests/tests_drampower/resources/cliconfig.json")
 
     # Data Paths
-    input_xz_trace = "/home/eevee/Downloads/" + dpc_file_name 
-    ramulator_trace_input = "/home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/" + trace_name + ".trace"
-    chunk_dir = "/home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/" + trace_name + "_chunks"
+    input_xz_trace = os.path.join(BASE_DIR, "..", "trace_files", dpc_file_name)
+    ramulator_trace_input = os.path.join(BASE_DIR, "..", "ramulator_trace_files", trace_name + ".trace")
+    chunk_dir = os.path.join(BASE_DIR, "..", "ramulator_trace_files", trace_name + "_chunks")
 
-    tREFI_list = [3900, 7800, 11700]
-    interval_list = [32, 64, 128]
+
+    tREFI_list = [3900, 5850, 7800]
+    interval_list = [32, 48, 64]
 
     # --- Step 1: Converting DPC2 trace ---
     if DO_CONVERSION:
@@ -48,21 +53,17 @@ def automate_pipeline(dpc_file_name):
                 "--inst-limit", "0",
                 "--line-limit", "0",
                 "--shift", "0",
-                "--store-mode", "paired",
-                "--max-chunk", "50"
+                "--max-chunk", "20"
             ], check=True)
         except Exception as e:
             print(f"Step 1 failed: {e}")
             exit(1)
 
         chunk_files = sorted(glob.glob(f"{chunk_dir}/{trace_name}_chunk_*.trace"))
-        #home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/x264_s-12B_chunks/chunk_030.trace
-        #chunk_dir = "/home/eevee/Documents/team_teh_tarik/trace_file/ramulator_tf/" + trace_name + "_chunks"
+
         if not chunk_files:
             print("No chunk files generated!")
             exit(1)
-
-    #python3 dpc2ram.py 625.x264.xz --out x264.simple.trace --inst-limit 200000 --line-limit 200000 --shift 6 --store-mode paired"""
 
     # 2. Load the baseline config
     with open(baseline_config_file, 'r') as f:
@@ -73,8 +74,10 @@ def automate_pipeline(dpc_file_name):
         chunk_tag = os.path.splitext(os.path.basename(chunk_trace))[0]
         for tREFI, interval in zip(tREFI_list, interval_list):
             base_config["MemorySystem"]["DRAM"]["timing"]["tREFI"] = tREFI
-            
-            output_base = f"/home/eevee/Documents/team_teh_tarik/result/{trace_name}/{trace_name}_{chunk_tag}/{chunk_tag}_{trace_name}_{interval}ms"
+            output_base = os.path.join(BASE_DIR, "..", "result", trace_name, 
+                f"{trace_name}_{chunk_tag}", 
+                f"{chunk_tag}_{trace_name}_{interval}ms"
+            )
             if not os.path.exists(output_base):
                 os.makedirs(output_base)
             ramulator_trace_output = output_base + f"/{trace_name}_{interval}ms_ramulator2_output.txt"
