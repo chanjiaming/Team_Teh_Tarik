@@ -13,14 +13,17 @@
 3. mkdir trace_files  
 4. **mv all your trace_files to trace_files directory  
 5. git clone https://github.com/CMU-SAFARI/ramulator2  
-6. cd ramulator2 && mkdir build && cd build && cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 && make -j4 && cp ./ramulator2 ../ramulator2 && cd ..  
-7. git clone https://github.com/tukl-msd/DRAMPower/tree/master  
-8. cd DRAMPower && cmake -S . -B build -D DRAMPOWER_BUILD_CLI=Y && cmake --build build && cd ..  
-9. git clone https://github.com/chanjiaming/Team_Teh_Tarik  
-10. cd Team_Teh_Tarik  
-11. mv ~/DDR5.cpp ~/ramulator2/src/dram/impl/DDR5.cpp  
-12. mv ~/ddr5.json ~/DRAMPower/tests/tests_drampower/resources/ddr5.json
-    
+(note: there might be potential gcc compatibility issue. If so, please create a virtual env (if needed) and upgrade/downgrade your gcc. 
+(note: plz adjust -j6 accordingly)
+6. cd ramulator2 && mkdir build && cd build && cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_COMPILER=gcc-11 -DCMAKE_CXX_COMPILER=g++-11 && make -j6 && cp ./ramulator2 ../ramulator2 && cd ..
+8. git clone https://github.com/tukl-msd/DRAMPower
+9. cd DRAMPower && cmake -S . -B build -D DRAMPOWER_BUILD_CLI=Y && cmake --build build && cd ..  
+10. git clone https://github.com/chanjiaming/Team_Teh_Tarik
+11. mv ./Team_Teh_Tarik/DDR5.cpp ./ramulator2/src/dram/impl/DDR5.cpp
+12. mv ./Team_Teh_Tarik/ddr5.json ./DRAMPower/tests/tests_drampower/resources/ddr5.json
+13. cd ramulator2 && cd build && cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_COMPILER=gcc-11 -DCMAKE_CXX_COMPILER=g++-11 && make -j6 && cp ./ramulator2 ../ramulator2 && cd ../..
+python3 Team_Teh_Tarik/automation_automation.py
+
 **Reference**
 1.  “3rd data prefetching championship (DPC-3) trace suite,” Stony Brook University. [Online]. Available: https://dpc3.compas.cs.stonybrook.edu/champsim-traces/s
 peccpu/
