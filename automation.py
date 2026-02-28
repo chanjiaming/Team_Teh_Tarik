@@ -20,12 +20,13 @@ def automate_pipeline(dpc_file_name):
 
     
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    dpc2ram_script = os.path.join(BASE_DIR, "trace_file/dpc2ram.py")
-    ram2drampower_script = os.path.join(BASE_DIR, "trace_file/ram2drampower.py")
+    dpc2ram_script = os.path.join(BASE_DIR, "dpc2ram.py")
+    ram2drampower_script = os.path.join(BASE_DIR, "ram2drampower.py")
+    # Ramulator2 Paths
+    ramulator_root = os.path.join(BASE_DIR, "..", "ramulator2")
 
     # DRAMPower Paths
-    drampower_root = os.path.join(BASE_DIR, "..", "ramulator", "DRAMPower")
+    drampower_root = os.path.join(BASE_DIR, "..", "DRAMPower")
     drampower_bin = os.path.join(drampower_root, "build/bin/cli")
     dram_spec_json = os.path.join(drampower_root, "tests/tests_drampower/resources/ddr5.json")
     cli_config_json = os.path.join(drampower_root, "tests/tests_drampower/resources/cliconfig.json")
@@ -53,7 +54,7 @@ def automate_pipeline(dpc_file_name):
                 "--inst-limit", "0",
                 "--line-limit", "0",
                 "--shift", "0",
-                "--max-chunk", "20"
+                "--max-chunk", "2"
             ], check=True)
         except Exception as e:
             print(f"Step 1 failed: {e}")
@@ -102,7 +103,7 @@ def automate_pipeline(dpc_file_name):
                 print(f"Fetching trace file: {ramulator_trace_input}")
                 try:
                     with open(output_base + f"/{trace_name}_{interval}ms_ramulator2_report.txt", "w") as output_file:
-                        subprocess.run(["./build/ramulator2", "-f", temp_config_name], check=True, stdout=output_file, stderr=output_file)
+                        subprocess.run([ramulator_root + "/build/ramulator2", "-f", temp_config_name], check=True, stdout=output_file, stderr=output_file)
                 except Exception as e:
                     print(f"Step 2 failed: {e}")
                     continue
